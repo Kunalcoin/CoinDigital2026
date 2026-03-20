@@ -177,6 +177,13 @@
             </div>
 
             <div class="col-lg-12">
+              <div class="alert alert-info mb-3 py-2" role="status">
+                <strong>Dolby Atmos (Apple / Gaana):</strong>
+                Scroll to <a class="alert-link fw-bold" href="#dolby-atmos-section">Dolby Atmos — below your stereo Audio upload</a>. (You must open this <em>track</em> page — URL ends with <code>/track/&lt;id&gt;</code>, not only the track list.)
+              </div>
+            </div>
+
+            <div class="col-lg-12">
               <div class="row">
                 <div class="col-lg-12">
                   <div class="row">
@@ -271,6 +278,65 @@
                       </div>
                     </div>
 
+                  </div>
+                </div>
+
+                {# Dolby Atmos directly under stereo Audio so it is never below a long two-column form #}
+                <div class="col-lg-12 mt-3 mb-2 p-3 rounded border border-info border-2 bg-light" id="dolby-atmos-section">
+                  <div class="row mb-1 mt-1">
+                    <div class="col-lg-12">
+                      <h3 class="h5 mb-2 text-dark"><b>Apple / Gaana — Dolby Atmos (extra master)</b></h3>
+                      <p class="text-muted small mb-2">
+                        <strong>You do not type a path from your PC.</strong> Choose <strong>Upload Dolby Atmos .wav</strong> below (BWF with ADM, same as Apple asks for).
+                        The site stores it in the cloud and fills the link automatically when you click <strong>Update</strong>.
+                        You still need a <strong>separate secondary ISRC</strong> for this Atmos mix (different from the stereo ISRC in the section below).
+                      </p>
+                      <div class="mb-2">
+                        <span class="small text-muted" id="dolby_atmos_setup_label">
+                          {% if rl_data.dolby_atmos_setup_percent == 100 %}Complete{% else %}{{ rl_data.dolby_atmos_setup_percent }}% — add Atmos master + 12-char secondary ISRC{% endif %}
+                        </span>
+                        <div class="progress mt-1" style="height: 22px;">
+                          <div id="dolby_atmos_setup_progress_bar" class="progress-bar bg-info text-dark" role="progressbar"
+                            style="width: {{ rl_data.dolby_atmos_setup_percent }}%;"
+                            aria-valuenow="{{ rl_data.dolby_atmos_setup_percent }}" aria-valuemin="0" aria-valuemax="100">
+                            {{ rl_data.dolby_atmos_setup_percent }}%
+                          </div>
+                        </div>
+                        <p class="small text-muted mb-0 mt-1">Completion: <strong>50%</strong> when the Atmos file is saved (upload + Update) or URL is set; <strong>100%</strong> when secondary ISRC is also filled (12 characters).</p>
+                      </div>
+                    </div>
+                    <div class="col-lg-12">
+                      <h6>Upload Dolby Atmos (.wav)</h6>
+                      <input id="dolby_atmos_file_track" class="form-control mb-2" type="file" accept=".wav">
+                      <div id="dolby_atmos_uploaded_files"></div>
+                    </div>
+                    <div class="col-lg-12 mt-2">
+                      <h6>Or paste Atmos file URL <span class="text-muted">(optional)</span></h6>
+                      <p class="text-muted small mb-1">Only if the file is already hosted (e.g. S3). Otherwise use upload above.</p>
+                      <input
+                        type="text"
+                        class="form-control"
+                        id="apple_music_dolby_atmos_url"
+                        name="apple_music_dolby_atmos_url"
+                        placeholder="https://your-bucket.../..._atmos.wav"
+                        value="{{ rl_data.apple_music_dolby_atmos_url }}"
+                        oninput="if (typeof refreshDolbySetupPercent === 'function') refreshDolbySetupPercent();"
+                      >
+                    </div>
+                    <div class="col-lg-12 mt-2">
+                      <h6>Dolby Atmos secondary ISRC <span>(12 letters/numbers)</span></h6>
+                      <input
+                        type="text"
+                        class="form-control"
+                        id="apple_music_dolby_atmos_isrc"
+                        name="apple_music_dolby_atmos_isrc"
+                        placeholder="Distinct ISRC for the Atmos mix"
+                        value="{{ rl_data.apple_music_dolby_atmos_isrc }}"
+                        pattern="[A-Za-z0-9]{0,12}"
+                        maxlength="12"
+                        oninput="this.value = this.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 12); if (typeof refreshDolbySetupPercent === 'function') refreshDolbySetupPercent();"
+                      >
+                    </div>
                   </div>
                 </div>
 
@@ -527,65 +593,6 @@
                         </div>
                       </div>
 
-                    </div>
-
-                    {# Dolby Atmos: full-width row (was only in right column — easy to miss below long left column) #}
-                    <div class="col-lg-12 mt-4 pt-4 border-top border-secondary border-opacity-25">
-                      <div class="row mb-1 mt-1">
-                        <div class="col-lg-12">
-                          <h3 class="h5 mb-2"><b>Apple / Gaana — Dolby Atmos (extra master)</b></h3>
-                          <p class="text-muted small mb-2">
-                            <strong>You do not type a path from your PC.</strong> Choose <strong>Upload Dolby Atmos .wav</strong> below (BWF with ADM, same as Apple asks for).
-                            The site stores it in the cloud and fills the link automatically when you click <strong>Update</strong>.
-                            You still need a <strong>separate secondary ISRC</strong> for this Atmos mix (different from the stereo ISRC above).
-                          </p>
-                          <div class="mb-2">
-                            <span class="small text-muted" id="dolby_atmos_setup_label">
-                              {% if rl_data.dolby_atmos_setup_percent == 100 %}Complete{% else %}{{ rl_data.dolby_atmos_setup_percent }}% — add Atmos master + 12-char secondary ISRC{% endif %}
-                            </span>
-                            <div class="progress mt-1" style="height: 22px;">
-                              <div id="dolby_atmos_setup_progress_bar" class="progress-bar bg-info text-dark" role="progressbar"
-                                style="width: {{ rl_data.dolby_atmos_setup_percent }}%;"
-                                aria-valuenow="{{ rl_data.dolby_atmos_setup_percent }}" aria-valuemin="0" aria-valuemax="100">
-                                {{ rl_data.dolby_atmos_setup_percent }}%
-                              </div>
-                            </div>
-                            <p class="small text-muted mb-0 mt-1">Completion: <strong>50%</strong> when the Atmos file is saved (upload + Update) or URL is set; <strong>100%</strong> when secondary ISRC is also filled (12 characters).</p>
-                          </div>
-                        </div>
-                        <div class="col-lg-12">
-                          <h6>Upload Dolby Atmos (.wav)</h6>
-                          <input id="dolby_atmos_file_track" class="form-control mb-2" type="file" accept=".wav">
-                          <div id="dolby_atmos_uploaded_files"></div>
-                        </div>
-                        <div class="col-lg-12 mt-2">
-                          <h6>Or paste Atmos file URL <span class="text-muted">(optional)</span></h6>
-                          <p class="text-muted small mb-1">Only if the file is already hosted (e.g. S3). Otherwise use upload above.</p>
-                          <input
-                            type="text"
-                            class="form-control"
-                            id="apple_music_dolby_atmos_url"
-                            name="apple_music_dolby_atmos_url"
-                            placeholder="https://your-bucket.../..._atmos.wav"
-                            value="{{ rl_data.apple_music_dolby_atmos_url }}"
-                            oninput="if (typeof refreshDolbySetupPercent === 'function') refreshDolbySetupPercent();"
-                          >
-                        </div>
-                        <div class="col-lg-12 mt-2">
-                          <h6>Dolby Atmos secondary ISRC <span>(12 letters/numbers)</span></h6>
-                          <input
-                            type="text"
-                            class="form-control"
-                            id="apple_music_dolby_atmos_isrc"
-                            name="apple_music_dolby_atmos_isrc"
-                            placeholder="Distinct ISRC for the Atmos mix"
-                            value="{{ rl_data.apple_music_dolby_atmos_isrc }}"
-                            pattern="[A-Za-z0-9]{0,12}"
-                            maxlength="12"
-                            oninput="this.value = this.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 12); if (typeof refreshDolbySetupPercent === 'function') refreshDolbySetupPercent();"
-                          >
-                        </div>
-                      </div>
                     </div>
 
                     <div class="col-lg-12">
