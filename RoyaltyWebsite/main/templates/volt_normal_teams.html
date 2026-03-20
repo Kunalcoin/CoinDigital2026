@@ -1,0 +1,85 @@
+{% extends 'volt_base.html' %} {% load static %} {% block content %}
+<div class="row">
+    <div class="col-12 mb-4">
+        {% if error %}
+            <div class="alert alert-danger" role="alert">
+            {{ error }}
+            </div>
+        {% endif %}
+        {% if success %}
+            <div class="alert alert-success" role="alert">
+            {{ success }}
+            </div>
+        {% endif %}
+        <div class="card border-0 shadow components-section">
+            <div class="card-header card-header-primary">
+                <h3 class="card-title">My Team</h3>
+            </div>
+            <div class="card-body row col-12">
+                <div class="col-6">
+                    <div class="card-body table-responsive" id="table_load"></div>
+                    
+                </div>
+                <div class="col-6">
+                    <form method="POST" action="/teams/">
+                        <div class="mb-3">
+                            <label for="email_id">Email: </label>
+                            <div class="input-group">
+                            <input type="email" placeholder="email" class="form-control" id="email_id" name="email_id" required>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="password_id">Password: </label>
+                            <div class="input-group">
+                            <input type="password" class="form-control" placeholder="password" id="password_id" name="password_id" required>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <div class="col-lg-12" style="text-align: right;">
+                                <button type="submit" class="btn btn-secondary">
+                                    Add Member
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+    function get_all_users() {
+        set_loading("#table_load");
+        $.ajax({
+        type: "GET",
+        url: "{% url 'get_my_team' %}",
+        }).then(function (response) {
+        set_loading("#table_load");
+        $("#table_load").html(response.table);
+        var dataTableUsers = document.getElementById("data_table");
+        if (dataTableUsers) {
+            const dataTable = new simpleDatatables.DataTable(dataTableUsers);
+        }
+        });
+    }
+    function delete_member(member_username) {
+        set_loading("#table_load");
+        $.ajax({
+        type: "POST",
+        url: "/delete_member/" + member_username + "/",
+        }).then(function (response) {
+        set_loading("#table_load");
+        if (response.success) {
+            sendSweetAlert('success', 'Removed Successfully', "Member successfully removed from your team!");
+            window.location.href = "/teams";
+        }
+        if (response.error) {
+            sendSweetAlert('error', 'Failed to remove', "There was an error removing user from your team! Please try again.");
+        }
+        });
+    }
+    get_all_users();
+</script>
+
+{% endblock content %}

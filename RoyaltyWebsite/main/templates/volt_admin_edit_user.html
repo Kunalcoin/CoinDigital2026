@@ -1,0 +1,462 @@
+{% extends 'volt_base.html' %}
+{% load static %}
+{% block content %}
+
+
+<div class="row">
+  <div class="col-12 mb-4">
+    <div class="card border-0 shadow components-section">
+      <div class="card-header card-header-primary">
+        <h3 class="card-title">Status and Ownership</h3>
+      </div>
+      <div class="card-body">
+        <div class="row">
+          <div class="col-lg-6 col-md-6 col-sm-12 col-xs-12">
+            <label>Status: </label>
+            <select class="form-select form-select-sm" id="user_status-selection" name="user_status-selection">
+              <option value="1" {% if selected_user.is_active == True %} selected {% endif %}>Active</option>
+              <option value="0" {% if selected_user.is_active != True %} selected {% endif %}>In-Active</option>
+            </select>
+            <div class="row">
+              <div class="col-lg-4"></div>
+              <div class="col-lg-4"></div>
+              <div class="col-lg-4" style="text-align: right;">
+                <button onclick="update_user_status()" class="btn btn-secondary">Update</button>
+              </div>
+            </div>
+          </div>
+          <div class="col-lg-6 col-md-6 col-sm-12 col-xs-12">
+              <label>Belongs to: </label>
+              <select class="form-select form-select-sm" id="ownership" name="ownership">
+                {% for r in intermediate_users %}
+                <option value="{{ r }}" {% if r == current_owner %} selected {% endif %}>
+                  {{ r }}
+                </option>
+                {% endfor %}
+              </select>
+              <div class="row">
+                <div class="col-lg-4"></div>
+                <div class="col-lg-4"></div>
+                <div class="col-lg-4" style="text-align: right;">
+                  <button onclick="change_user()" class="btn btn-primary">Change</button>
+                  <button onclick="remove_user()" class="btn btn-danger">Remove</button>
+                </div>
+              </div>
+          </div>
+          {% if selected_user.role == "normal" %}
+          <div class="mb-3 mt-3">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="splitroyalities-checkbox"
+              {% if selected_user.split_royalties_enabled %}checked{% endif %}>
+              <p class="form-check-label" for="splitroyalities-checkbox">
+                Enable split royalities
+                <button id="splitroyalities-update-btn" onclick="update_splitroyalities()" class="btn btn-sm btn-outline-secondary ms-2">Update</button>              </p>
+             
+            </div>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-12 mb-4">
+    <div class="card border-0 shadow components-section">
+      <div class="card-header card-header-primary">
+        <h3 class="card-title">User Details</h3>
+      </div>
+      <div class="card-body">
+        <form action="{% url 'edit_user' selected_user.id %}" method="post">
+          {%csrf_token%}
+          <!-- Fields HERE -->
+          <div class="row mb-4">
+            <div class="col-lg-4 col-sm-6">
+              <div class="text-center">
+                <h3>Personal Information</h3>
+              </div>
+
+              <div class="mb-3 mt-3">
+                <div class="mb-2">
+                  <label class="" for="role">Role:</label>
+                  <select {% if requesting_user_role == "intermediate" %} disabled {% endif %} id="role"
+                    class="w-100 form-control" name="role">
+                    {% for r in roles %}
+                    <option value="{{ r }}" {% if r == selected_user.role %} selected  {% endif %}>
+                      {{ r|capfirst }}
+                    </option>
+                    {% endfor %}
+                  </select>
+                </div>
+              </div>
+
+              <div class="mb-3">
+                <label for="name_id">Name: </label>
+                <div class="input-group">
+                  <input type="text" placeholder="name" value="{{ selected_user.first_name }}" class="form-control" id="name_id"
+                    name="name">
+                </div>
+              </div>
+
+              <div class="mb-3">
+                <label for="surname_id">Surname: </label>
+                <div class="input-group">
+                  <input type="text" class="form-control" value="{{ selected_user.last_name }}" placeholder="surname" id="surname_id"
+                    name="surname">
+                </div>
+              </div>
+
+              <div class="mb-3">
+                <label for="email_id">Email: </label>
+                <div class="input-group">
+                  <input type="email" class="form-control" value="{{ selected_user.email }}" placeholder="email" id="email_id"
+                    name="username" disabled>
+                </div>
+              </div>
+
+              <div class="mb-3">
+                <label for="pass_id">Password: </label>
+                <div class="input-group">
+                  <input type="password" class="form-control" id="pass_id" name="password"
+                    placeholder="Leave blank if you don't want to change" aria-label="Password">
+                  <span class="input-group-text" id="basic-addon3">
+                    <svg class="icon icon-xs text-gray-600" fill="currentColor" viewBox="0 0 20 20"
+                      xmlns="http://www.w3.org/2000/svg">
+                      <path fill-rule="evenodd"
+                        d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
+                        clip-rule="evenodd"></path>
+                    </svg>
+                  </span>
+                </div>
+              </div>
+
+              <div class="mb-3">
+                <div class="mb-2">
+                  <label class="my-1 me-2" for="country">Country: </label>
+                  <select id="country_id" class="w-100 form-control" name="country">
+                    {% for country in countries %}
+                      <option {% if selected_user.country == country %}selected{% endif %}>{{ country }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+              </div>
+
+              <div class="mb-3">
+                <div class="mb-2">
+                  <label class="my-1 me-2" for="default_language_id">Default Language: </label>
+                  <select class="w-100 form-control" id="default_language_id" name="language">
+                    {% for language in languages %}
+                    <option {% if selected_user.language == language %}selected{% endif %}>{{ language }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+              </div>
+
+              <div class="mb-3">
+                <label for="city_id">City: </label>
+                <div class="input-group">
+                  <input type="text" value="{{ selected_user.city }}" class="form-control" placeholder="city" id="city_id"
+                    name="city">
+                </div>
+              </div>
+
+              <div class="mb-3">
+                <label for="street_id">Street: </label>
+                <div class="input-group">
+                  <input type="text" value="{{ selected_user.street }}" class="form-control" placeholder="street" id="street_id"
+                    name="street">
+                </div>
+              </div>
+
+              <div class="mb-3">
+                <label for="postal_code_id">Postal Code: </label>
+                <div class="input-group">
+                  <input type="text" value="{{ selected_user.postal_code }}" class="form-control" placeholder="postal code"
+                    id="postal_code_id" name="postal_code">
+                </div>
+              </div>
+
+              <div class="mb-3">
+                <label for="contact_phone_id">Contact Phone: </label>
+                <div class="input-group">
+                  <input type="tel" class="form-control" value="{{ selected_user.contact_phone }}" placeholder="contact phone"
+                    id="contact_phone_id" name="contact_phone"
+                    pattern="[+]{1}[0-9]{1}[0-9]{6,20}">
+                </div>
+              </div>
+
+            </div>
+            <div class="col-lg-4 col-sm-6">
+              <div class="text-center">
+                <h3>Company Information</h3>
+              </div>
+
+              <div class="mt-3 mb-3">
+                <label for="company_id">Company: </label>
+                <div class="input-group">
+                  <input type="text" class="form-control" value="{{ selected_user.company }}" placeholder="company" id="company_id"
+                    name="company">
+                </div>
+              </div>
+              <div class="mb-3">
+                <label for="company_name_id">Company Name: </label>
+                <div class="input-group">
+                  <input type="text" class="form-control" value="{{ selected_user.company_name }}" placeholder="company name"
+                    id="company_name_id" name="company_name">
+                </div>
+              </div>
+              <div class="mb-3">
+                <label for="fiskal_identity_number_id">Fiskal Identity Number: </label>
+                <div class="input-group">
+                  <input type="text" class="form-control" value="{{ selected_user.fiskal_id_number }}"
+                    placeholder="fiskal identity number" id="fiskal_identity_number_id" name="fiskal_id_number">
+                </div>
+              </div>
+              <div class="mb-3">
+                <label for="country_phone_id">Country Phone: </label>
+                <div class="input-group">
+                  <input type="tel" value="{{ selected_user.country_phone }}" class="form-control" placeholder="country phone"
+                    id="country_phone_id" name="country_phone"
+                    pattern="[+]{1}[0-9]{1}[0-9]{6,20}">
+                </div>
+              </div>
+              <div class="mb-3">
+                <label for="contact_phone_id">Contact Phone: </label>
+                <div class="input-group">
+                  <input type="tel" value="{{ selected_user.company_contact_phone }}" class="form-control" placeholder="contact phone"
+                    id="contact_phone_id" name="company_contact_phone"
+                    pattern="[+]{1}[0-9]{1}[0-9]{6,20}">
+                </div>
+              </div>
+              <div class="mb-3">
+                <label for="pan_number_id">PAN Number: </label>
+                <div class="input-group">
+                  <input type="text" value="{{ selected_user.pan }}" class="form-control" placeholder="pan number"
+                    id="pan_number_id" name="pan_number">
+                </div>
+              </div>
+              <div class="mb-3">
+                <label for="gst_number_id">GST Number: </label>
+                <div class="input-group">
+                  <input type="text" value="{{ selected_user.gst_number }}" class="form-control" placeholder="gst number"
+                    id="gst_number_id" name="gst_number">
+                </div>
+              </div>
+            </div>
+            <div class="col-lg-4 col-sm-6">
+              <div class="text-center">
+                <h3>Bank Information</h3>
+              </div>
+              <div class="mt-3 mb-3">
+                <label for="account_name_id">Account Name: </label>
+                <div class="input-group">
+                  <input type="text" value="{{ selected_user.account_name }}" class="form-control" placeholder="account name"
+                    id="account_name_id" name="account_name">
+                </div>
+              </div>
+              <div class="mb-3">
+                <label for="account_number_id">Account Number: </label>
+                <div class="input-group">
+                  <input type="text" value="{{ selected_user.account_number }}" class="form-control" placeholder="account number"
+                    id="account_number_id" name="account_number">
+                </div>
+              </div>
+              <div class="mb-3">
+                <label for="ifsc_code_id">IFSC Code: </label>
+                <div class="input-group">
+                  <input type="text" value="{{ selected_user.ifsc }}" class="form-control" placeholder="ifsc code"
+                    id="ifsc_code_id" name="ifsc_code">
+                </div>
+              </div>
+              <div class="mb-3">
+                <label for="sort_code_id">SORT Code: </label>
+                <div class="input-group">
+                  <input type="text" value="{{ selected_user.sort_code }}" class="form-control" placeholder="sort code"
+                    id="sort_code_id" name="sort_code">
+                </div>
+              </div>
+              <div class="mb-3">
+                <label for="swift_code_id">SWIFT Code: </label>
+                <div class="input-group">
+                  <input type="text" value="{{ selected_user.swift_code }}" class="form-control" placeholder="swift code"
+                    id="swift_code_id" name="swift_code">
+                </div>
+              </div>
+              <div class="mb-3">
+                <label for="iban_number_id">IBAN Number: </label>
+                <div class="input-group">
+                  <input type="text" value="{{ selected_user.iban }}" class="form-control" placeholder="iban number"
+                    id="iban_number_id" name="iban_number">
+                </div>
+              </div>
+              <div class="mb-3">
+                <label for="country_of_bank_id">Country of Bank: </label>
+                <div class="input-group">
+                  <input type="text" value="{{ selected_user.bank_country }}" class="form-control" placeholder="country of bank"
+                    id="country_of_bank_id" name="country_of_bank">
+                </div>
+              </div>
+              <div class="mb-3">
+                <label for="bank_name_id">Bank Name: </label>
+                <div class="input-group">
+                  <input type="text" value="{{ selected_user.bank_name }}" class="form-control" placeholder="bank name"
+                    id="bank_name_id" name="bank_name">
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="row mb-4">
+            <div class="col-lg-4 col-sm-6">
+              <div class="text-center">
+                <h3>{{ settings.WEBAPP_NAME }} Payout</h3>
+              </div>
+
+              <div class="mb-3 mt-3">
+                <label for="name_id">Sales Payout Threshold: </label>
+                <div class="input-group">
+                  <input type="number" value="{{ ratios.sales_payout_threshold }}" class="form-control"
+                    id="sales_pay_out_threshhold_id" name="sales_payout_threshold" required>
+                </div>
+              </div>
+
+              <div class="mb-3">
+                <label for="surname_id">Sales Payout: </label>
+                <div class="input-group">
+                  <input type="number" class="form-control" onchange="payoutManualValidator()" id="sales_pay_out_id"
+                    name="sales_payout" min="0" max="100" value="{{ ratios.sales_payout }}" required>
+                </div>
+              </div>
+
+            </div>
+            <div class="col-lg-4 col-sm-6">
+              <div class="text-center">
+                <h3>Add Manually</h3>
+              </div>
+
+              <div class="mt-3 mb-3">
+                <label for="company_id">Channel Ratio: </label>
+                <div class="input-group">
+                  <input type="number" onchange="payoutValidator()" value="{{ ratios.stores }}" class="form-control"
+                    id="channel_payout_id" name="ratio" required>
+                </div>
+              </div>
+              <div class="mb-3">
+                <label for="company_name_id">Youtube Official Channel Ratio: </label>
+                <div class="input-group">
+                  <input type="number" value="{{ ratios.youtube }}" class="form-control" onchange="payoutValidator()"
+                    id="official_channel_youtube_payout_id" name="yt_ratio" required>
+                </div>
+              </div>
+
+            </div>
+          </div>
+          <div class="mb-3">
+            <div class="col-lg-12" style="text-align: right;">
+              <button type="submit" class="btn btn-secondary">
+                Update
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function update_user_status() {
+    var status = document.getElementById("user_status-selection").value;
+    $.ajax({
+          type: "POST",
+          url: '/users/status/edit/',
+          data: {
+            'status': status,
+            'user': "{{ selected_user.id }}"
+          }
+      }).then(function (response) {
+        sendSweetAlert('info', '', response.message);
+      });
+  }
+
+  function change_user() {
+    var new_owner = document.getElementById("ownership").value;
+    var data_link = "{% url 'change_ownership' selected_user.pk %}"
+    $.ajax({
+          type: "POST",
+          url: data_link,
+          data: {
+            'new_owner': new_owner
+          }
+  
+      }).then(function (response) {
+          sendSweetAlert('info', '', "Ownership has been updated!");
+      });
+  }
+
+    
+  function update_splitroyalities() {
+    var enabled = document.getElementById("splitroyalities-checkbox").checked ? 1 : 0;
+    var btn = document.getElementById("splitroyalities-update-btn");
+    btn.disabled = true;
+    console.log(enabled);
+    $.ajax({
+      type: "POST",
+      url: '/users/splitroyalitiesenabled/edit/',  // You may need to adjust this URL to match your backend
+      data: {
+        'splitroyalities': enabled,
+        'user': "{{ selected_user.id }}",
+        'csrfmiddlewaretoken': '{{ csrf_token }}'
+      }
+    }).then(function (response) {
+      sendSweetAlert('info', '', response.message);
+      btn.disabled = false;
+    }).fail(function (response) {
+      btn.disabled = false;
+    });
+      }
+    
+  
+  function remove_user() {
+    $.ajax({
+          type: "GET",
+          url: "{% url 'remove_ownership' selected_user.pk %}",
+      }).then(function (response) {
+          sendSweetAlert('success', '', "Ownership removed. Please refresh the page to see updated ownerships.");
+      });
+  }
+  
+  function payoutValidator() {
+    var payout = document.getElementById("sales_pay_out_id");
+    var ratio = document.getElementById("channel_payout_id");
+    var yt_ratio = document.getElementById("official_channel_youtube_payout_id");
+    
+    var payout_value = Number(payout.value);
+    var ratio_value = Number(ratio.value);
+    var yt_ratio_value = Number(yt_ratio.value);
+    
+    if (ratio_value > payout_value) {
+      ratio.value = payout_value;
+    }
+    if (yt_ratio_value > payout_value) {
+      yt_ratio.value = payout_value;
+    }
+  }
+  
+  function payoutManualValidator() {
+    var payout = document.getElementById("sales_pay_out_id");
+    var ratio = document.getElementById("channel_payout_id");
+    var yt_ratio = document.getElementById("official_channel_youtube_payout_id");
+    
+    var payout_value = Number(payout.value);
+    var ratio_value = Number(ratio.value);
+    var yt_ratio_value = Number(yt_ratio.value);
+    
+    ratio.value = payout_value;
+    yt_ratio.value = payout_value;
+  }
+  
+  </script>
+
+{% endblock content %}

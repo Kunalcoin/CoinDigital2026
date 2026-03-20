@@ -1,0 +1,754 @@
+{% extends 'volt_base.html' %} {% load static %} {% block nav_content %}
+<!-- You can add custom nav content here if needed -->
+{% endblock nav_content %} {% block content %}
+
+<!-- Track-based split management for normal users -->
+{% if requesting_user_role != 'admin' %}
+<div class="container mt-5">
+  <h2 class="mb-4">Edit Splits</h2>
+  <div id="tracks-container">
+    <!-- Tracks will be loaded here by JavaScript -->
+    </div>
+</div>
+{% endif %}
+{% if requesting_user_role == 'admin' %}
+<div class="container mt-3">
+  <h3 class="mb-3">
+    All Track Splits
+   
+  </h3>
+   <button
+      class="btn btn-sm btn-outline-primary"
+      style="display: none"
+      id="refresh-split-list"
+    >
+      Refresh
+    </button>
+  <div id="admin-track-splits-container" style="max-height: 300px; overflow-y: auto; border: 1px solid #e9ecef; padding: 15px; border-radius: 5px;">
+    <!-- Content will be loaded here by JavaScript -->
+  </div>
+</div>
+{% endif %}
+
+
+
+<script>
+  const ARTIST_ROLES = [
+    "Primary Artist",
+    "Performer",
+    "Producer",
+    "Remixer",
+    "Composer",
+    "Lyricist",
+    "Featuring",
+    "with",
+    "Conductor",
+    "Arranger",
+    "Orchestra",
+    "Actor",
+    "Xylophone",
+    "Whistle",
+    "Vocals",
+    "Violin",
+    "Viola De Gamba",
+    "Viola",
+    "Trumpet",
+    "Trombone",
+    "Tambourine",
+    "Synthesizer",
+    "Saxophone",
+    "Recorder",
+    "Rap",
+    "Programming",
+    "Piano",
+    "Percussion",
+    "Organ",
+    "Oboe",
+    "Metallophone",
+    "Lute",
+    "Keyboards",
+    "Horn",
+    "Harp",
+    "Harmonica",
+    "Guitar",
+    "Flute",
+    "Fiddle",
+    "Ensemble",
+    "Drums",
+    "Clarinet",
+    "Choir",
+    "Cello",
+    "Bells",
+  ];
+
+  let tracksWithSplits = [];
+  let currentEditTrack = null;
+  const USER_ID = "{{ request.user.id|default:'null' }}";
+  const USER_EMAIL = "{{ request.user.email|default:'' }}";
+
+  function fetchTracksWithSplits() {
+    const container = document.getElementById("tracks-container");
+    if (container) {
+      container.innerHTML = `
+        <div style="text-align:center;">
+          <div class="spinner-border text-primary" role="status" style="width: 2.5rem; height: 2.5rem;">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+        </div>
+      `;
+    }
+    
+    return fetch("/releases/split/tracks_with_splits/")
+      .then((response) => response.json())
+      .then((data) => {
+        tracksWithSplits = data.tracks || [];
+        if (container) {
+          renderTracksWithSplits();
+        }
+        return data.tracks || [];
+      })
+      .catch((error) => {
+        console.error("Error fetching tracks:", error);
+        if (container) {
+          container.innerHTML = '<div class="alert alert-danger">Error loading tracks. Please refresh the page.</div>';
+        }
+        throw error;
+      });
+  }
+
+  function renderTracksWithSplits() {
+    const container = document.getElementById("tracks-container");
+    if (!container) return;
+    
+    if (!tracksWithSplits.length) {
+      container.innerHTML = '<div class="alert alert-info">No tracks found. Create some tracks first to manage splits.</div>';
+      return;
+    }
+
+        let html = '';
+    tracksWithSplits.forEach((track) => {
+      // Find the owner's split (where you are the recipient)
+      const ownerSplit = track.splits.find(split => split.recipient_email === USER_EMAIL);
+      
+      // Filter out the owner's split from other splits to display in table (where others are recipients)
+      const otherSplits = track.splits.filter(split => split.recipient_email !== USER_EMAIL);
+      
+      html += `
+        <div class="card mb-4">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <div>
+              <h5 class="mb-0">
+                ${track.title}
+                <small class="text-muted">(${track.release_title})</small>
+              </h5>
+              ${ownerSplit ? `
+                <div class="mt-1">
+                  <span class="badge bg-primary">Your split: ${ownerSplit.recipient_percentage}%</span>
+                </div>
+              ` : ''}
+            </div>
+            <button class="btn btn-outline-primary btn-sm" onclick="openEditModal(${track.id})">
+              Edit
+            </button>
+          </div>
+          <div class="card-body">
+            ${otherSplits.length ? `
+              <table class="table table-sm">
+                <thead>
+                  <tr>
+                    <th>Recipient Name</th>
+                    <th>Recipient Email</th>
+                    <th>Role</th>
+                    <th>Percentage</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${otherSplits.map(split => `
+                    <tr>
+                      <td>${split.recipient_name || 'N/A'}</td>
+                      <td>${split.recipient_email}</td>
+                      <td>${split.recipient_role}</td>
+                      <td><span class="badge bg-secondary">${split.recipient_percentage}%</span></td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            ` : `
+              ${ownerSplit ? 
+                '<p class="text-muted">No other splits configured for this track.</p>' : 
+                '<p class="text-muted">No splits configured for this track.</p>'
+              }
+            `}
+            <div class="mt-2">
+              <strong>Total: ${track.total_percentage}%</strong>
+              ${track.remaining_percentage > 0 ? 
+                `<span class="text-warning ms-2">Remaining: ${track.remaining_percentage}%</span>` : 
+                `<span class="text-success ms-2">✓ Complete</span>`
+              }
+            </div>
+          </div>
+        </div>
+      `;
+    });
+    
+    container.innerHTML = html;
+  }
+
+  function openEditModal(trackId) {
+    currentEditTrack = tracksWithSplits.find(t => t.id === trackId);
+    if (!currentEditTrack) return;
+    
+    renderEditModalContent();
+    const modal = new bootstrap.Modal(document.getElementById("editTrackSplitsModal"));
+    modal.show();
+  }
+
+  function renderEditModalContent() {
+    const modalTitle = document.getElementById("editTrackSplitsModalLabel");
+    const modalBody = document.getElementById("modal-splits-table-body");
+
+    modalTitle.textContent = `Edit Splits - ${currentEditTrack.title}`;
+    
+    // Clear and populate table
+    modalBody.innerHTML = '';
+    
+    // Clear any previous messages
+    document.getElementById('modal-message').innerHTML = '';
+    
+    // Only add non-owner splits to the table (owner split is shown in summary)
+    currentEditTrack.splits
+      .filter(split => split.recipient_email !== USER_EMAIL)
+      .forEach((split, index) => {
+        addSplitRowToModal(split, index);
+      });
+    
+    // Trigger auto-balancing after all rows are added
+    setTimeout(updateModalSummary, 100);
+  }
+
+  function addSplitRowToModal(split = null, index = null) {
+    const tbody = document.getElementById("modal-splits-table-body");
+    const row = document.createElement("tr");
+    const splitId = split ? split.id : null;
+    const isNew = !split;
+    
+    const isOwnerSplit = split && split.recipient_email === USER_EMAIL;
+    
+    row.innerHTML = `
+      <td>
+        <input type="email" class="form-control form-control-sm recipient-email" 
+               value="${split ? split.recipient_email : ''}" 
+               ${isOwnerSplit ? 'readonly' : ''} 
+               required>
+      </td>
+      <td>
+        <input type="text" class="form-control form-control-sm recipient-name" 
+               value="${split ? split.recipient_name : ''}" required>
+      </td>
+      <td>
+        <select class="form-control form-select form-select-sm recipient-role" required>
+          <option value="">Select Role</option>
+          ${ARTIST_ROLES.map(role => 
+            `<option value="${role}" ${split && split.recipient_role === role ? 'selected' : ''}>${role}</option>`
+          ).join('')}
+        </select>
+      </td>
+      <td>
+        <input type="number" class="form-control form-control-sm recipient-percentage" 
+               value="${split ? split.recipient_percentage : ''}" 
+               min="0" max="100" step="0.01" required
+               ${isOwnerSplit ? 'readonly title="Auto-calculated to maintain 100% total"' : ''}>
+        ${isOwnerSplit ? '<small class="text-muted">Auto-calculated</small>' : ''}
+      </td>
+      <td>
+        <button type="button" class="btn btn-sm btn-outline-danger delete-split-row" 
+                ${isOwnerSplit ? 'disabled title="Cannot delete owner split"' : ''}>
+          ❌
+        </button>
+      </td>
+    `;
+    
+    row.dataset.splitId = splitId || '';
+    row.dataset.isNew = isNew ? 'true' : 'false';
+    
+    tbody.appendChild(row);
+    
+    // Add event listeners
+    const percentageInput = row.querySelector('.recipient-percentage');
+    const emailInput = row.querySelector('.recipient-email');
+    
+    // For non-owner rows, update summary when percentage changes
+    percentageInput.addEventListener('input', function() {
+      // Only auto-balance if this is not the owner's row
+      if (emailInput.value !== USER_EMAIL) {
+        updateModalSummary();
+      }
+    });
+    
+    // Update summary when email changes (might change owner detection)
+    emailInput.addEventListener('input', updateModalSummary);
+    
+    // Handle delete button
+    row.querySelector('.delete-split-row').addEventListener('click', function() {
+      if (!this.disabled && row.dataset.splitId) {
+        deleteSplitImmediately(row.dataset.splitId, row);
+      } else if (!this.disabled && row.dataset.isNew === 'true') {
+        // For new unsaved rows, just remove from UI
+        row.remove();
+        updateModalSummary();
+      }
+    });
+  }
+
+  function deleteSplitImmediately(splitId, row) {
+    if (!confirm('Are you sure you want to delete this split? This action cannot be undone.')) {
+      return;
+    }
+    
+    // Show spinner in the row
+    const deleteButton = row.querySelector('.delete-split-row');
+    const originalDeleteContent = deleteButton.innerHTML;
+    deleteButton.innerHTML = '<div class="spinner-border spinner-border-sm" role="status"></div>';
+    deleteButton.disabled = true;
+    
+    // Make API call to delete
+    fetch(`/releases/split/${splitId}/delete/`, {
+      method: "POST", 
+      headers: {
+        "X-CSRFToken": document.querySelector("[name=csrfmiddlewaretoken]")?.value || "",
+      }
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.message && data.message.includes('successfully')) {
+        // Success - refresh the track data and modal
+        fetchTracksWithSplits().then(() => {
+          // Find the updated track data
+          const updatedTrack = tracksWithSplits.find(t => t.id === currentEditTrack.id);
+          if (updatedTrack) {
+            currentEditTrack = updatedTrack;
+            renderEditModalContent();
+          }
+        });
+      } else {
+        // Error - restore delete button and show error
+        deleteButton.innerHTML = originalDeleteContent;
+        deleteButton.disabled = false;
+        document.getElementById('modal-message').innerHTML = 
+          `<div class="alert alert-danger">Error deleting split: ${data.error || 'Unknown error'}</div>`;
+      }
+    })
+    .catch(error => {
+      // Network error - restore delete button and show error
+      deleteButton.innerHTML = originalDeleteContent;
+      deleteButton.disabled = false;
+      document.getElementById('modal-message').innerHTML = 
+        `<div class="alert alert-danger">Error deleting split: ${error.message}</div>`;
+    });
+  }
+
+  function updateModalSummary() {
+    const rows = document.querySelectorAll("#modal-splits-table-body tr");
+    let otherRowsTotal = 0;
+    
+    // Calculate total of all rows in table (all are non-owner now)
+    rows.forEach(row => {
+      const percentageInput = row.querySelector('.recipient-percentage');
+      const percentage = parseFloat(percentageInput.value) || 0;
+      otherRowsTotal += percentage;
+    });
+    
+    // Auto-calculate owner's percentage to make total = 100%
+    const ownerPercentage = Math.max(0, 100 - otherRowsTotal);
+    
+    // Calculate final total
+    const total = otherRowsTotal + ownerPercentage;
+    
+    document.getElementById('modal-total-percentage').textContent = `${total.toFixed(2)}%`;
+    document.getElementById('modal-owner-percentage').textContent = `${ownerPercentage.toFixed(2)}%`;
+    
+    const saveButton = document.getElementById('save-track-splits-btn');
+    const ownerElement = document.getElementById('modal-owner-percentage');
+    
+    // Enable save button when owner has at least 0%
+    if (ownerPercentage >= 0) {
+      saveButton.disabled = false;
+      ownerElement.className = 'text-success';
+    } else {
+      saveButton.disabled = true;
+      ownerElement.className = 'text-danger';
+    }
+    
+    // Show warning if owner percentage goes negative
+    if (ownerPercentage < 0) {
+      document.getElementById('modal-message').innerHTML = 
+        '<div class="alert alert-warning">Warning: Total other splits exceed 100%. Your percentage cannot be negative.</div>';
+    } else {
+      document.getElementById('modal-message').innerHTML = '';
+    }
+  }
+
+  function addNewSplitRow() {
+    addSplitRowToModal();
+    updateModalSummary();
+  }
+
+  function saveTrackSplits() {
+    const rows = document.querySelectorAll("#modal-splits-table-body tr");
+    const splitsToCreate = [];
+    const splitsToUpdate = [];
+    const splitsToDelete = [];
+    
+    // Calculate owner's percentage (not in table anymore)
+    let otherRowsTotal = 0;
+    rows.forEach(row => {
+      const percentage = parseFloat(row.querySelector('.recipient-percentage').value) || 0;
+      otherRowsTotal += percentage;
+    });
+    const ownerPercentage = Math.max(0, 100 - otherRowsTotal);
+    const totalPercentage = otherRowsTotal + ownerPercentage;
+    
+    // Frontend validation: Ensure total doesn't exceed 100%
+    if (totalPercentage > 100) {
+      document.getElementById('modal-message').innerHTML = 
+        `<div class="alert alert-danger">Error: Total percentage (${totalPercentage.toFixed(2)}%) exceeds 100%. Please reduce the split percentages.</div>`;
+      return;
+    }
+    
+    // Additional validation: Ensure owner percentage is not negative
+    if (ownerPercentage < 0) {
+      document.getElementById('modal-message').innerHTML = 
+        `<div class="alert alert-danger">Error: Other splits total ${otherRowsTotal.toFixed(2)}% which exceeds 100%. Your percentage cannot be negative.</div>`;
+      return;
+    }
+    
+    // Additional validation: Ensure all percentages are valid
+    let hasInvalidPercentage = false;
+    let hasEmptyFields = false;
+    let emptyFieldDetails = [];
+    
+    rows.forEach((row, index) => {
+      const email = row.querySelector('.recipient-email').value.trim();
+      const name = row.querySelector('.recipient-name').value.trim();
+      const role = row.querySelector('.recipient-role').value;
+      const percentage = parseFloat(row.querySelector('.recipient-percentage').value);
+      
+      // Check for empty required fields
+      if (!email) emptyFieldDetails.push(`Row ${index + 1}: Email is required`);
+      if (!name) emptyFieldDetails.push(`Row ${index + 1}: Name is required`);
+      if (!role) emptyFieldDetails.push(`Row ${index + 1}: Role is required`);
+      
+      // Check for invalid percentages
+      if (isNaN(percentage) || percentage < 0) {
+        hasInvalidPercentage = true;
+      }
+      
+      // Basic email format validation
+      if (email && !email.includes('@')) {
+        emptyFieldDetails.push(`Row ${index + 1}: Invalid email format`);
+      }
+    });
+    
+    if (emptyFieldDetails.length > 0) {
+      hasEmptyFields = true;
+    }
+    
+    if (hasEmptyFields) {
+      document.getElementById('modal-message').innerHTML = 
+        `<div class="alert alert-danger">Error: Please fill all required fields:<br>• ${emptyFieldDetails.join('<br>• ')}</div>`;
+      return;
+    }
+    
+    if (hasInvalidPercentage) {
+      document.getElementById('modal-message').innerHTML = 
+        `<div class="alert alert-danger">Error: All percentages must be valid numbers greater than or equal to 0.</div>`;
+      return;
+    }
+    
+    // Clear any previous error messages
+    document.getElementById('modal-message').innerHTML = '';
+    
+    // Handle owner's split first
+    const existingOwnerSplit = currentEditTrack.splits.find(s => s.recipient_email === USER_EMAIL);
+    if (existingOwnerSplit) {
+      // Update existing owner split with new percentage
+      if (existingOwnerSplit.recipient_percentage !== ownerPercentage) {
+        splitsToUpdate.push({
+          id: existingOwnerSplit.id,
+          recipient_email: USER_EMAIL,
+          recipient_name: existingOwnerSplit.recipient_name,
+          recipient_role: existingOwnerSplit.recipient_role,
+          recipient_percentage: ownerPercentage
+        });
+      }
+    } else {
+      // Create new owner split (shouldn't happen normally, but just in case)
+      splitsToCreate.push({
+        recipient_email: USER_EMAIL,
+        recipient_name: "Owner",
+        recipient_role: "Primary Artist",
+        recipient_percentage: ownerPercentage,
+        track_id: currentEditTrack.id,
+        release_id: currentEditTrack.release_id,
+        user_id: USER_ID
+      });
+    }
+    
+    // Collect existing non-owner split IDs that are not in the modal (to be deleted)
+    const existingSplitIds = currentEditTrack.splits.filter(s => s.recipient_email !== USER_EMAIL).map(s => s.id);
+    const modalSplitIds = [];
+    
+    // Process non-owner splits from the table
+    rows.forEach(row => {
+      const splitId = row.dataset.splitId;
+      const isNew = row.dataset.isNew === 'true';
+      const email = row.querySelector('.recipient-email').value.trim();
+      const name = row.querySelector('.recipient-name').value.trim();
+      const role = row.querySelector('.recipient-role').value;
+      const percentage = parseFloat(row.querySelector('.recipient-percentage').value);
+      
+      if (!email || !name || !role || isNaN(percentage)) {
+        return; // Skip invalid rows
+      }
+      
+      if (isNew) {
+        splitsToCreate.push({
+          recipient_email: email,
+          recipient_name: name,
+          recipient_role: role,
+          recipient_percentage: percentage,
+          track_id: currentEditTrack.id,
+          release_id: currentEditTrack.release_id,
+          user_id: USER_ID
+        });
+      } else {
+        modalSplitIds.push(parseInt(splitId));
+        // Find the original split to compare for changes
+        const originalSplit = currentEditTrack.splits.find(s => s.id === parseInt(splitId));
+        if (originalSplit && (
+          originalSplit.recipient_email !== email ||
+          originalSplit.recipient_name !== name ||
+          originalSplit.recipient_role !== role ||
+          originalSplit.recipient_percentage !== percentage
+        )) {
+          splitsToUpdate.push({
+            id: splitId,
+            recipient_email: email,
+            recipient_name: name,
+            recipient_role: role,
+            recipient_percentage: percentage
+          });
+        }
+      }
+    });
+    
+    // Find non-owner splits to delete (existing splits not in modal)
+    existingSplitIds.forEach(id => {
+      if (!modalSplitIds.includes(id)) {
+        splitsToDelete.push(id);
+      }
+    });
+    
+    // Execute all operations
+    const promises = [];
+    
+    // Create new splits
+    splitsToCreate.forEach(split => {
+      promises.push(
+        fetch("/releases/split/create/", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            "X-CSRFToken": document.querySelector("[name=csrfmiddlewaretoken]")?.value || "",
+          },
+          body: JSON.stringify(split)
+        }).then(r => r.json())
+      );
+    });
+    
+    // Update existing splits
+    splitsToUpdate.forEach(split => {
+      promises.push(
+        fetch(`/releases/split/update/${split.id}/`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": document.querySelector("[name=csrfmiddlewaretoken]")?.value || "",
+          },
+          body: JSON.stringify(split)
+        }).then(r => r.json())
+      );
+    });
+    
+    // Delete removed splits
+    splitsToDelete.forEach(splitId => {
+      promises.push(
+          fetch(`/releases/split/${splitId}/delete/`, {
+            method: "POST",
+            headers: {
+            "X-CSRFToken": document.querySelector("[name=csrfmiddlewaretoken]")?.value || "",
+          }
+        }).then(r => r.json())
+      );
+    });
+    
+    // Execute all promises
+    Promise.all(promises).then(results => {
+      const hasErrors = results.some(r => r.error);
+      if (!hasErrors) {
+        // Success - close modal and refresh tracks
+        bootstrap.Modal.getInstance(document.getElementById("editTrackSplitsModal")).hide();
+        fetchTracksWithSplits();
+      } else {
+        // Show errors
+        const errors = results.filter(r => r.error).map(r => r.error).join('<br>');
+        document.getElementById('modal-message').innerHTML = 
+          `<div class="alert alert-danger">${errors}</div>`;
+      }
+    }).catch(error => {
+      document.getElementById('modal-message').innerHTML = 
+        `<div class="alert alert-danger">Error saving splits: ${error.message}</div>`;
+    });
+  }
+
+  // Add modal HTML to the page if it doesn't exist
+  function createEditModal() {
+    if (document.getElementById("editTrackSplitsModal")) return;
+    
+    const modalHtml = `
+      <div class="modal fade" id="editTrackSplitsModal" tabindex="-1" aria-labelledby="editTrackSplitsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+          <div class="modal-header">
+              <h5 class="modal-title" id="editTrackSplitsModalLabel">Edit Track Splits</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+              <div id="modal-message"></div>
+              <div style="overflow-x: auto;">
+                <table class="table table-bordered">
+                  <thead>
+                    <tr>
+                      <th>Recipient Email</th>
+                      <th>Recipient Name</th>
+                      <th>Role</th>
+                      <th>Percentage</th>
+                      <th>❌</th>
+                    </tr>
+                  </thead>
+                  <tbody id="modal-splits-table-body">
+                    <!-- Split rows will be added here -->
+                  </tbody>
+                </table>
+              </div>
+              <div class="d-flex justify-content-between align-items-center mt-3">
+                <button type="button" class="btn btn-outline-primary" onclick="addNewSplitRow()">
+                  ➕ Add
+                </button>
+                <div>
+                  <strong>Total: <span id="modal-total-percentage">0%</span></strong>
+                  <strong class="ms-3">Your split: <span id="modal-owner-percentage">100%</span></strong>
+                </div>
+              </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+              <button type="button" class="btn btn-primary" id="save-track-splits-btn" onclick="saveTrackSplits()" disabled>
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+  }
+
+
+  function setLoading(selector) {
+    // Show a spinner in the container
+    const element = document.querySelector(selector);
+    if (element) {
+      element.innerHTML = `
+        <div style="text-align:center;">
+            <div class="spinner-border text-primary" role="status" style="width: 2.5rem; height: 2.5rem;">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    `;
+  }
+  }
+// New function for Admin Track Splits
+  // New function for Admin Track Splits
+  function fetchAndRenderAdminTrackSplits() {
+    const adminContainer = document.getElementById("admin-track-splits-container");
+    if (!adminContainer) return; // Only proceed if the admin section exists (i.e., user is admin)
+
+    setLoading("#admin-track-splits-container");
+
+    fetch("/releases/split/admin_all_track_list/")
+      .then((response) => response.json())
+      .then((data) => {
+        const allTrackSplits = data.all_track_splits || [];
+        if (!allTrackSplits.length) {
+          adminContainer.innerHTML = '<div class="alert alert-info">No track splits found.</div>';
+          return;
+        }
+
+        let htmlContent = '';
+        allTrackSplits.forEach(trackData => {
+          htmlContent += `
+            <h5>Track: ${trackData.track_title || 'N/A'}</h5>
+            <p class="text-muted">Total Amount: ₹${trackData.total_amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+            <div style="overflow-x:auto; white-space:nowrap;">
+              <table class="table table-bordered table-striped mb-4">
+                <thead>
+                  <tr>
+                    <th>Owner</th>
+                    <th>Recipient Name</th>
+                    <th>Recipient Email</th>
+                    <th>Recipient Role</th>
+                    <th>Percentage</th>
+                    <th>Due Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${trackData.splits.map(split => `
+                    <tr>
+                      <td>${split.owner_email || 'N/A'}</td>
+                      <td>${split.recipient_name || 'N/A'}</td>
+                      <td>${split.recipient_email || 'N/A'}</td>
+                      <td>${split.recipient_role || 'N/A'}</td>
+                      <td>${split.recipient_percentage != null ? split.recipient_percentage + '%' : 'N/A'}</td>
+                      <td>₹${split.split_due_amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          `;
+        });
+        adminContainer.innerHTML = htmlContent; // Removed the outer div with overflow here
+      })
+      .catch(error => {
+        console.error("Error fetching admin track splits:", error);
+        adminContainer.innerHTML = `<div class="alert alert-danger">Error loading admin track splits: ${error.message}</div>`;
+      });
+  }
+
+  // Initialize the page
+  document.addEventListener("DOMContentLoaded", function () {
+    createEditModal();
+    
+    if (document.getElementById("admin-track-splits-container")) {
+      // Admin view
+      fetchAndRenderAdminTrackSplits();
+    } else if (document.getElementById("tracks-container")) {
+      // Normal user view - fetch tracks with splits
+      fetchTracksWithSplits();
+    }
+  });
+</script>
+
+{% endblock content %}

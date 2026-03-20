@@ -1,0 +1,184 @@
+{% extends 'volt_base.html' %}
+{% load static %}
+{% block nav_content %}
+{% if requesting_user_role == "admin" %}
+<div class="d-flex align-items-center">
+  <button class="btn btn-gray-800 d-inline-flex align-items-center me-2" onclick="refresh_payments()"
+    id="due_balance_div">
+    <span class="material-symbols-outlined">
+      refresh
+    </span>
+    &nbsp Refresh Dues
+  </button>
+</div>
+{% endif %}
+{% endblock nav_content %}
+{% block content %}
+<div class="row">
+  <div class="col-12 mb-4">
+    {% if requesting_user_role == "admin" %}
+    <div class="card border-0 shadow components-section">
+      <div class="card-header card-header-primary">
+        <h3 class="card-title">Payments Data Upload
+          <span class="material-symbols-outlined" style="cursor: pointer;" onclick="showFileUploadInfo(1)">
+            info
+          </span>
+        </h3>
+      </div>
+      <div class="card-body table-responsive">
+        <form enctype="multipart/form-data" id="form_1">
+          {%csrf_token%}
+          <input class="form-control" type="file" id="validatedCustomFile" required name="payments_file" accept=".xlsx">
+          <div class="progress">
+            <div id="progressBar_1" class="progress-bar" role="progressbar_1" aria-valuenow="0" aria-valuemin="0"
+              aria-valuemax="100" style="width: 0%;">
+              0%
+            </div>
+          </div>
+          <div class="col-md-2">
+            <button type="submit" class="btn btn-secondary">Upload</button>
+          </div>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+
+    <br>
+
+    <div class="card border-0 shadow components-section">
+      <div class="card-header card-header-primary">
+        <h3 class="card-title">Monthly Payments</h3>
+      </div>
+      <div class="card-body">
+        <div class="card-body table-responsive" id="table_load">
+        </div>
+      </div>
+    </div>
+
+    <br>
+
+    <div class="row" id="month_card" hidden>
+      <div class="col-lg-12">
+        <div class="card">
+          <div class="card-header card-header-primary">
+            <h3 id="month_payments_title" class="card-title"></h3>
+          </div>
+          <div class="card-body table-responsive" id="month_payments">
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+</div>
+
+<script>
+  $(document).ready(function () {
+    $('#form_1').on('submit', function (event) {
+      event.preventDefault();
+      var formData = new FormData($('#form_1')[0]);
+      $('#progressBar_1').attr('aria-valuenow', 0).css('width', 0 + '%').text(0 + '%');
+      $("#error_royalty").css('display', 'none')
+      $.ajax({
+        xhr: function () {
+          var xhr = new window.XMLHttpRequest();
+          xhr.upload.addEventListener('progress', function (e) {
+            if (e.lengthComputable) {
+              var percent = Math.round((e.loaded / e.total) * 100);
+              $('#progressBar_1').attr('aria-valuenow', percent).css('width', percent + '%').text(percent + '%');
+            }
+          });
+          return xhr;
+        },
+        type: 'POST',
+        url: '/payments',
+        data: formData,
+        processData: false,
+        contentType: false,
+        success: function (response) {
+          if (response.payments_error_message) {
+            sendSweetAlert('error', '', response.payments_error_message);
+          }
+          if (response.payments_success_message) {
+            sendSweetAlert('success', '', response.payments_success_message);
+            get_payments();
+          }
+        }
+      })
+    });
+  });
+  function get_payments() {
+    set_loading('#table_load');
+    $.ajax({
+      type: "GET",
+      url: "/get_payments/" + "{{ username }}",
+    }).then(function (response) {
+      set_loading('#table_load');
+      $("#table_load").html(response.table);
+      // let table_data = new DataTable('#data_table');
+      var dataTableTracks = document.getElementById('data_table');
+      if (dataTableTracks) {
+        const dataTable = new simpleDatatables.DataTable(dataTableTracks,{
+          footer : true
+        });
+      }
+    });
+  }
+  function get_monthly_payments(month) {
+    var months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    var current_month = Number(month.split("-")[1]) - 1;
+    current_month = months[current_month];
+    var month_card = document.getElementById("month_card")
+    $("#month_payments_title").html(current_month);
+    month_card.hidden = false;
+    set_loading("#month_payments");
+    $.ajax({
+      type: "GET",
+      url: "/get_month_payments/" + month,
+    }).then(function (response) {
+      set_loading("#month_payments");
+      $("#month_payments").html(response.table);
+      var dataTableTracks = document.getElementById('month_data_table');
+      if (dataTableTracks) {
+        const dataTable = new simpleDatatables.DataTable(dataTableTracks, {
+          footer : true
+        });
+      }
+    });
+  }
+  function refresh_payments() {
+    $.ajax({
+      type: "POST",
+      url: "/refresh_payments",
+    }).then(function (response) {
+      if (response.success) {
+        sendSweetAlert('success', '', 'Due amounts are updating. Changes will reflect in some time!');
+      } else {
+        sendSweetAlert('error', '', 'There was some issue in updating payments. Please try later!');
+      }
+    });
+  }
+  get_payments();
+</script>
+<script>
+  function showFileUploadInfo (param) {
+    var type = ""
+    if (param == 1) {
+      type = "payments"
+    }
+    $.ajax({
+      type: 'GET',
+      url: '/files/uploaders/info/' + type,
+      success: function(response) {
+        sendSweetAlert('info', 'File Requirements', response.message);
+      },
+      error: function(jqXHR, textStatus, errorThrown) {
+        
+        alert(errorThrown);
+      }
+    });
+  }
+</script>
+
+{% endblock content %}

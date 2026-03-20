@@ -1,0 +1,285 @@
+{
+  "version": "1.0",
+  "_comment": "Update party_id when DSP provides their DDEX Party ID. Set is_active to true when ready to deliver. You can update one DSP at a time.",
+  "deal_profiles": {
+    "streaming": "SubscriptionModel + AdvertisementSupportedModel; OnDemandStream, NonInteractiveStream, ConditionalDownload",
+    "ugc": "RightsClaimModel; UserMakeAvailableUserProvided; RightsController 100%; RightsClaimPolicyType Monetize",
+    "meta": "RightsClaimModel; UserMakeAvailableUserProvided + UserMakeAvailableLabelProvided; RightsClaimPolicy Monetize; TrackReleaseVisibility; two recipients (Facebook_SRP + Facebook_AAP)",
+    "download": "PayAsYouGoModel + PermanentDownload"
+  },
+  "dsps": [
+    {
+      "code": "spotify",
+      "party_id": "PADPIDA2011072101T",
+      "party_name": "Spotify",
+      "deal_profile": "streaming",
+      "is_active": true
+    },
+    {
+      "code": "tiktok",
+      "party_id": "PADPIDA2018082301A",
+      "party_name": "TikTok / Bytedance",
+      "deal_profile": "ugc",
+      "is_active": true
+    },
+    {
+      "code": "audiomack",
+      "party_id": "PADPIDA2017103008S",
+      "party_name": "Audiomack LLC",
+      "deal_profile": "streaming",
+      "is_active": true
+    },
+    {
+      "code": "meta",
+      "party_id": "PADPIDA2013071501L",
+      "party_name": "Meta (Facebook/Instagram)",
+      "deal_profile": "meta",
+      "is_active": true
+    },
+    {
+      "code": "jiosaavn",
+      "party_id": "PADPIDA2012073007R",
+      "party_name": "Saavn",
+      "deal_profile": "streaming",
+      "is_active": true
+    },
+    {
+      "code": "apple_music",
+      "party_id": "PADPIDA_PLACEHOLDER_APPLE",
+      "party_name": "Apple Music",
+      "deal_profile": "streaming",
+      "is_active": false
+    },
+    {
+      "code": "amazon_music",
+      "party_id": "PADPIDA_PLACEHOLDER_AMAZON",
+      "party_name": "Amazon Music",
+      "deal_profile": "streaming",
+      "is_active": false
+    },
+    {
+      "code": "youtube_music",
+      "party_id": "PADPIDA_PLACEHOLDER_YOUTUBE",
+      "party_name": "YouTube Music",
+      "deal_profile": "streaming",
+      "is_active": false
+    },
+    {
+      "code": "deezer",
+      "party_id": "PADPIDA_PLACEHOLDER_DEEZER",
+      "party_name": "Deezer",
+      "deal_profile": "streaming",
+      "is_active": false
+    },
+    {
+      "code": "soundcloud",
+      "party_id": "PADPIDA_PLACEHOLDER_SOUNDCLOUD",
+      "party_name": "SoundCloud",
+      "deal_profile": "streaming",
+      "is_active": false
+    },
+    {
+      "code": "tidal",
+      "party_id": "PADPIDA_PLACEHOLDER_TIDAL",
+      "party_name": "Tidal",
+      "deal_profile": "streaming",
+      "is_active": false
+    },
+    {
+      "code": "napster",
+      "party_id": "PADPIDA_PLACEHOLDER_NAPSTER",
+      "party_name": "Napster",
+      "deal_profile": "streaming",
+      "is_active": false
+    },
+    {
+      "code": "pandora",
+      "party_id": "PADPIDA_PLACEHOLDER_PANDORA",
+      "party_name": "Pandora",
+      "deal_profile": "streaming",
+      "is_active": false
+    },
+    {
+      "code": "iheartradio",
+      "party_id": "PADPIDA_PLACEHOLDER_IHEART",
+      "party_name": "iHeartRadio",
+      "deal_profile": "streaming",
+      "is_active": false
+    },
+    {
+      "code": "resso",
+      "party_id": "PADPIDA_PLACEHOLDER_RESSO",
+      "party_name": "Resso",
+      "deal_profile": "streaming",
+      "is_active": false
+    },
+    {
+      "code": "angaami",
+      "party_id": "PADPIDA_PLACEHOLDER_ANGHAMI",
+      "party_name": "Anghami",
+      "deal_profile": "streaming",
+      "is_active": false
+    },
+    {
+      "code": "boomplay",
+      "party_id": "PADPIDA_PLACEHOLDER_BOOMPLAY",
+      "party_name": "Boomplay",
+      "deal_profile": "streaming",
+      "is_active": false
+    },
+    {
+      "code": "kkbox",
+      "party_id": "PADPIDA_PLACEHOLDER_KKBOX",
+      "party_name": "KKBox",
+      "deal_profile": "streaming",
+      "is_active": false
+    },
+    {
+      "code": "line_music",
+      "party_id": "PADPIDA_PLACEHOLDER_LINEMUSIC",
+      "party_name": "LINE Music",
+      "deal_profile": "streaming",
+      "is_active": false
+    },
+    {
+      "code": "melon",
+      "party_id": "PADPIDA_PLACEHOLDER_MELON",
+      "party_name": "Melon",
+      "deal_profile": "streaming",
+      "is_active": false
+    },
+    {
+      "code": "genie",
+      "party_id": "PADPIDA_PLACEHOLDER_GENIE",
+      "party_name": "Genie",
+      "deal_profile": "streaming",
+      "is_active": false
+    },
+    {
+      "code": "bugs",
+      "party_id": "PADPIDA_PLACEHOLDER_BUGS",
+      "party_name": "Bugs",
+      "deal_profile": "streaming",
+      "is_active": false
+    },
+    {
+      "code": "wynk",
+      "party_id": "PADPIDA_PLACEHOLDER_WYNK",
+      "party_name": "Wynk Music",
+      "deal_profile": "streaming",
+      "is_active": false
+    },
+    {
+      "code": "gaana",
+      "party_id": "PADPIDA2025121702Q",
+      "party_name": "Entertainment Network India Limited",
+      "deal_profile": "streaming",
+      "is_active": true
+    },
+    {
+      "code": "hungama",
+      "party_id": "PADPIDA_PLACEHOLDER_HUNGAMA",
+      "party_name": "Hungama",
+      "deal_profile": "streaming",
+      "is_active": false
+    },
+    {
+      "code": "meta_music",
+      "party_id": "PADPIDA_PLACEHOLDER_META",
+      "party_name": "Meta (Facebook/Instagram Music)",
+      "deal_profile": "streaming",
+      "is_active": false
+    },
+    {
+      "code": "triller",
+      "party_id": "PADPIDA_PLACEHOLDER_TRILLER",
+      "party_name": "Triller",
+      "deal_profile": "streaming",
+      "is_active": false
+    },
+    {
+      "code": "qobuz",
+      "party_id": "PADPIDA_PLACEHOLDER_QOBUZ",
+      "party_name": "Qobuz",
+      "deal_profile": "streaming",
+      "is_active": false
+    },
+    {
+      "code": "audioboom",
+      "party_id": "PADPIDA_PLACEHOLDER_AUDIOBOOM",
+      "party_name": "Audioboom",
+      "deal_profile": "streaming",
+      "is_active": false
+    },
+    {
+      "code": "slacker",
+      "party_id": "PADPIDA_PLACEHOLDER_SLACKER",
+      "party_name": "Slacker Radio",
+      "deal_profile": "streaming",
+      "is_active": false
+    },
+    {
+      "code": "joox",
+      "party_id": "PADPIDA_PLACEHOLDER_JOOX",
+      "party_name": "JOOX",
+      "deal_profile": "streaming",
+      "is_active": false
+    },
+    {
+      "code": "flo",
+      "party_id": "PADPIDA_PLACEHOLDER_FLO",
+      "party_name": "FLO",
+      "deal_profile": "streaming",
+      "is_active": false
+    },
+    {
+      "code": "vibe",
+      "party_id": "PADPIDA_PLACEHOLDER_VIBE",
+      "party_name": "VIBE",
+      "deal_profile": "streaming",
+      "is_active": false
+    },
+    {
+      "code": "soribada",
+      "party_id": "PADPIDA_PLACEHOLDER_SORIBADA",
+      "party_name": "Soribada",
+      "deal_profile": "streaming",
+      "is_active": false
+    },
+    {
+      "code": "netflix",
+      "party_id": "PADPIDA_PLACEHOLDER_NETFLIX",
+      "party_name": "Netflix",
+      "deal_profile": "streaming",
+      "is_active": false
+    },
+    {
+      "code": "twitch",
+      "party_id": "PADPIDA_PLACEHOLDER_TWITCH",
+      "party_name": "Twitch",
+      "deal_profile": "streaming",
+      "is_active": false
+    },
+    {
+      "code": "discord",
+      "party_id": "PADPIDA_PLACEHOLDER_DISCORD",
+      "party_name": "Discord",
+      "deal_profile": "streaming",
+      "is_active": false
+    },
+    {
+      "code": "shazam",
+      "party_id": "PADPIDA_PLACEHOLDER_SHAZAM",
+      "party_name": "Shazam",
+      "deal_profile": "streaming",
+      "is_active": false
+    },
+    {
+      "code": "soundtrack_your_brand",
+      "party_id": "PADPIDA_PLACEHOLDER_STYB",
+      "party_name": "Soundtrack Your Brand",
+      "deal_profile": "streaming",
+      "is_active": false
+    }
+  ]
+}

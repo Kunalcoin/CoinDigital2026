@@ -1,0 +1,22 @@
+Django
+# mysqlclient  # Using PyMySQL instead
+numpy
+pandas
+PyMySQL
+SQLAlchemy
+xgboost
+xlrd
+openpyxl
+gunicorn
+python-dotenv
+requests
+django-storages
+boto3
+django-settings-export
+django-ses
+drf_yasg
+mutagen
+celery[redis]>=5.3.0
+redis>=4.0.0
+paramiko>=3.0.0
+cryptography

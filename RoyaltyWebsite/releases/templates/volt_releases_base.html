@@ -1,0 +1,704 @@
+{% extends 'volt_base.html' %}
+{% block head %}
+<div class="row">
+    <div class="col-lg-8 col-md-6 col-sm-6" style="padding: 0px;">
+        <span>Release</span>
+    </div>
+</div>
+{% endblock head %}
+{% block nav_content %}
+<div class="row">
+    <div class="col-lg-12">
+        <div class="row">
+            <div class="col-lg-6 p-1">
+                <input id="update_release_title_input" value="{{ release_title }}" type="text" class="form-control">
+            </div>
+            <div class="col-lg-6 p-1">
+                <button class="btn btn-gray-800 d-inline-flex align-items-center me-2" {% if is_published != 1 or requesting_user_role == 'admin' %} onclick="update_release_title()" {% endif %}>
+                    <span class="material-symbols-outlined">
+                        edit
+                    </span>
+                    &nbsp; Rename
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock nav_content %}
+{% block content %}
+<script>
+    
+    var artists_type_options = [
+        "Accordion", "Actor", "Adapter", "Assistant Engineer", "Background Vocals", "Banjo", "Bass Guitar", "Bassoon",
+        "Bells", "Cello", "Choir", "Clarinet", "Co-Producer", "Composer", "Conductor", "Drums", "Ensemble", "Featured Artist",
+        "Fiddle", "Flute", "Graphic Design", "Guitar", "Harmonica", "Harp", "Horn", "Keyboards", "Lute", "Lyricist",
+        "Mastering Engineer", "Metallophone", "Mixing Engineer", "Oboe", "Orchestra", "Organ", "Other Performer",
+        "Percussion", "Performer", "Piano", "Primary Artist", "Producer", "Programming", "Rap",
+        "Recording Engineer", "Recorder", "Remixer", "Saxophone", "Synthesizer", "Tambourine", "Trombone", "Trumpet",
+        "Viola", "Viola de Gamba", "Violin", "Vocals", "Whistle", "with", "Xylophone"
+    ];
+    
+    var genere_options = [
+        "Select genre", "Alternative", "Alternative/Experimental", "Alternative/Gothic", "Alternative/Grunge", "Alternative/Indie Pop", "Alternative/Indie Rock", "Alternative/Rock", "Ambient/New Age", "Ambient/New Age/Meditation", "Blues", "Blues/Contemporary Blues", "Blues/New Orleans Blues", "Blues/Traditional Blues", "Children's Music", "Children's Music/Classic",
+        "Children's Music/Holiday", "Children's Music/Stories", "Classical", "Classical/Antique", "Classical/Baroque", "Classical/Chamber", "Classical/Concert", "Classical/Modern Compositions", "Classical/Opera", "Classical/Orchestral", "Classical/Piano", "Classical/Romantic", "Comedy",
+        "Country", "Country/Bluegrass", "Country/Contemporary", "Country/Honky Tonk", "Country/Nashville", "Country/Pop", "Country/Square Dance", "Easy Listening", "Easy Listening/Bar Jazz/Cocktail", "Easy Listening/Bossa Nova", "Easy Listening/Lounge", "Easy Listening/Traditional", "Electronic", "Electronic/Acid House",
+        "Electronic/Breaks", "Electronic/Broken beat", "Electronic/Chill Out", "Electronic/DJ Tools/Sample Packs", "Electronic/Dance", "Electronic/Deep House", "Electronic/Downtempo - experimental", "Electronic/Drum & Bass", "Electronic/Dub/Reggae/Dancehall", "Electronic/Dubstep/Grime", "Electronic/Electro House", "Electronic/Glitch Hop", "Electronic/Hard Dance",
+        "Electronic/Hard Techno", "Electronic/Hardcore", "Electronic/Hardstyle", "Electronic/House", "Electronic/Indie Dance/Nu Disco", "Electronic/Jazz", "Electronic/Minimal", "Electronic/Pop Trance", "Electronic/Progressive House", "Electronic/Psy-Trance", "Electronic/Tech House",
+        "Electronic/Techno", "Electronic/Trance", "Electronic/Trip Hop", "Experimental", "Fitness&Workout", "Flamenco", "Folk", "Funk/R&B", "Hip-Hop/Rap", "Hip-Hop/Rap/Gangsta & Hardcore", "Holiday/Christmas", "Inspirational", "Jazz", "Jazz/Bebop", "Jazz/Big Band", "Jazz/Brazilian Jazz", "Jazz/Classic", "Jazz/Contemporary",
+        "Jazz/Dixie/Rag Time", "Jazz/Free Jazz", "Jazz/Fusion", "Jazz/Jazz Funk", "Jazz/Latin Jazz", "Jazz/Nu Jazz/Acid Jazz", "Jazz/Smooth Jazz", "Jazz/Swing", "Jazz/Traditional", "Jazz/World", "Karaoke", "Latin", "Latin/Bachata", "Latin/Banda", "Latin/Big Band", "Latin/Bolero", "Latin/Bossa Nova",
+        "Latin/Brasil/Tropical", "Latin/Christian", "Latin/Conjunto", "Latin/Corridos", "Latin/Cuban", "Latin/Cumbia", "Latin/Duranguense", "Latin/Electronica", "Latin/Grupero", "Latin/Hip Hop", "Latin/Latin Rap", "Latin/Mambo", "Latin/Mariachi", "Latin/Norteño", "Latin/Pop", "Latin/Ranchera", "Latin/Reggaeton", "Latin/Regional Mexicano", "Latin/Rock en Español", "Latin/Salsa",
+        "Latin/Salsa/Merengue", "Latin/Sierreño", "Latin/Sonidero", "Latin/Tango", "Latin/Tejano", "Latin/Tierra Caliente", "Latin/Traditional Mexican", "Latin/Vallenato", "New Age", "Pop", "Pop/Contemporary/Adult", "Pop/J-Pop", "Pop/K-Pop", "Pop/Mandopop",
+        "Pop/Singer Songwriter", "Punk", "R&B", "Reggae", "Rock", "Rock/Black Metal", "Rock/Blues-Rock", "Rock/Brit-Pop", "Rock/British Invasion", "Rock/Chinese Rock", "Rock/Classic", "Rock/Death Metal", "Rock/Glam Rock", "Rock/Hair Metal", "Rock/Hard Rock", "Rock/Heavy Metal", "Rock/Jam Bands", "Rock/Korean Rock", "Rock/Progressive", "Rock/Psychedelic", "Rock/Rock 'n' Roll", "Rock/Rockabilly", "Rock/Russian Rock", "Rock/Singer/Songwriter", "Rock/Southern Rock", "Rock/Surf", "Rock/Tex-Mex", "Rock/Turkish Rock", "Ska", "Soul", "Soundtrack", "Soundtrack/Anime", "Soundtrack/Musical", "Soundtrack/TV", "Spiritual",
+        "Spiritual/Christian", "Spiritual/Gospel", "Spiritual/Gregorian", "Spiritual/India", "Spiritual/Judaica", "Spiritual/World", "Spoken Word/Speeches", "Trap", "Trap/Future Bass", "Trap/Future Bass/Twerk", "Vocal/Nostalgia", "World", "World/African", "World/African/African Dancehall", "World/African/African Reggae", "World/African/Afrikaans", "World/African/Afro-Beat", "World/African/Afro-Folk", "World/African/Afro-Fusion", "World/African/Afro-House", "World/African/Afro-Pop", "World/African/Afro-Soul", "World/African/Afrobeats", "World/African/Alte", "World/African/Amapiano", "World/African/Benga", "World/African/Bongo-Flava", "World/African/Coupé-Décalé", "World/African/Gqom", "World/African/Highlife", "World/African/Kizomba", "World/African/Kuduro", "World/African/Kwaito", "World/African/Maskandi", "World/African/Mbalax", "World/African/Ndombolo", "World/African/Shangaan Electro", "World/African/Soukous", "World/African/Taarab", "World/African/Zouglou", "World/Afro-Beat", "World/Afro-Pop", "World/Americas/Argentina", "World/Americas/Brazilian", "World/Americas/Brazilian/Axé", "World/Americas/Brazilian/Baile Funk", "World/Americas/Brazilian/Black Music", "World/Americas/Brazilian/Bossa Nova", "World/Americas/Brazilian/Chorinho",
+        "World/Americas/Brazilian/Folk", "World/Americas/Brazilian/Forró", "World/Americas/Brazilian/Frevo", "World/Americas/Brazilian/Funk Carioca", "World/Americas/Brazilian/MPB", "World/Americas/Brazilian/Marchinha", "World/Americas/Brazilian/Pagode", "World/Americas/Brazilian/Samba", "World/Americas/Brazilian/Samba-Rock", "World/Americas/Brazilian/Samba-de-Raiz", "World/Americas/Brazilian/Samba-enredo", "World/Americas/Brazilian/Sambalanço", "World/Americas/Brazilian/Sertanejo", "World/Americas/Cajun-Creole", "World/Americas/Calypso", "World/Americas/Colombia",
+        "World/Americas/Cuba-Caribbean", "World/Americas/Mexican", "World/Americas/North-American", "World/Americas/Panama", "World/Americas/Peru", "World/Americas/South-American", "World/Arabic", "World/Asian/Central Asia", "World/Asian/China", "World/Asian/Indian", "World/Asian/Indian/Assamese", "World/Asian/Indian/Bengali", "World/Asian/Indian/Bengali/Rabindra Sangeet", "World/Asian/Indian/Bhojpuri", "World/Asian/Indian/Bollywood", "World/Asian/Indian/Carnatic Classical", "World/Asian/Indian/Devotional & Spiritual", "World/Asian/Indian/Ghazals", "World/Asian/Indian/Gujarati", "World/Asian/Indian/Haryanvi", "World/Asian/Indian/Hindustani Classical", "World/Asian/Indian/Indian Classical", "World/Asian/Indian/Indian Folk", "World/Asian/Indian/Indian Pop", "World/Asian/Indian/Kannada", "World/Asian/Indian/Malayalam", "World/Asian/Indian/Marathi", "World/Asian/Indian/Odia", "World/Asian/Indian/Punjabi", "World/Asian/Indian/Punjabi/Punjabi Pop", "World/Asian/Indian/Rajasthani", "World/Asian/Indian/Regional Indian", "World/Asian/Indian/Sufi", "World/Asian/Indian/Tamil", "World/Asian/Indian/Telugu", "World/Asian/Indian/Urdu", "World/Asian/India", "World/Asian/India-Bollywood", "World/Asian/Japan", "World/Asian/South Asia",
+        "World/Australian/Pacific", "World/Ethnic", "World/Europe/Eastern", "World/Europe/French", "World/Europe/German", "World/Europe/Northern", "World/Europe/Southern", "World/Europe/Spain", "World/Europe/Western", "World/Mediterranean/Greece", "World/Mediterranean/Italy", "World/Mediterranean/Spain", "World/Russian", "World/Worldbeat"
+    ];
+    var language_options = [
+        "No linguistic content",
+        "Afrikaans",
+        "Amharic",
+        "Arabic",
+        "Arabic - Egyptian",
+        "Arabic - Moroccan",
+        "Armenian",
+        "Assamese",
+        "Azerbaijani",
+        "Basque",
+        "Belarusian",
+        "Bengali",
+        "Bhojpuri",
+        "Bosnian",
+        "Bulgarian",
+        "Cambodian",
+        "Catalan",
+        "Chechen",
+        "Chinese",
+        "Chinese - Cantonese",
+        "Chinese - Hakka",
+        "Chinese - Mandarin",
+        "Croatian",
+        "Czech",
+        "Danish",
+        "Dutch",
+        "English",
+        "Estonian",
+        "Filipino",
+        "Finnish",
+        "French",
+        "Galician",
+        "Georgian",
+        "German",
+        "Greek",
+        "Gujarati",
+        "Haitian",
+        "Haitian Creole",
+        "Haryanvi",
+        "Hawaiian",
+        "Hebrew",
+        "Hindi",
+        "Hungarian",
+        "Icelandic",
+        "Igbo",
+        "Indonesian",
+        "Irish",
+        "Italian",
+        "Japanese",
+        "Kannada",
+        "Kazakh",
+        "Konkani",
+        "Korean",
+        "Kurdish",
+        "Lao",
+        "Latin",
+        "Latvian",
+        "Lingala",
+        "Lithuanian",
+        "Luganda",
+        "Macedonian",
+        "Malay",
+        "Malayalam",
+        "Maori",
+        "Marathi",
+        "Mongolian",
+        "Nepali",
+        "Norwegian",
+        "Oriya",
+        "Persian",
+        "Polish",
+        "Portuguese",
+        "Punjabi",
+        "Rajasthani",
+        "Romanian",
+        "Russian",
+        "Samoan",
+        "Sanskrit",
+        "Sepedi",
+        "Serbian",
+        "Shona",
+        "Slovak",
+        "Slovene",
+        "Sotho",
+        "Spanish",
+        "Swahili",
+        "Swedish",
+        "Tagalog",
+        "Tahitian",
+        "Tamazight",
+        "Tamil",
+        "Telugu",
+        "Thai",
+        "Tsonga",
+        "Tswana",
+        "Turkish",
+        "Twi",
+        "Ukrainian",
+        "Urdu",
+        "Venda",
+        "Vietnamese",
+        "Xhosa",
+        "Zulu"
+    ];
+    var album_format_options = [
+        "Single", "EP", "Album"
+    ];
+    var price_category_options = ['mid', 'budget', 'full', 'premium'
+    ];
+    var explicit_lyrics_options = ['Not Explicit', 'Explicit', 'Cleaned'
+    ];
+</script>
+<script>
+    var current_upc_code = null;
+    function resetForm($form) {
+        $form.find('input:text, input:password, input:file, select, textarea').val('');
+    }
+    function add_new_label() {
+        var new_label = document.getElementById('label_new').value
+        if (new_label != '') {
+            var select = document.getElementById("labels");
+            var found = false;
+            for (var i = 0; i < select.options.length; i++) {
+                if (select.options[i].value === new_label) {
+                    found = true;
+                }
+            }
+            if (found == false) {
+                select.options[select.options.length] = new Option(new_label, new_label);
+            }
+            for (var i = 0; i < select.options.length; i++) {
+                if (select.options[i].value === new_label) {
+                    select.options[i].selected = true;
+                }
+            }
+        }
+        $.ajax({
+            url: "/releases/add_new_label/" + new_label + "|_|" + '{{ rl_data.created_by }}',
+            type: 'GET'
+        }).then(function (response) {
+            if (response.error) {
+                sendSweetAlert('error', '',"Issue adding label to database!")
+            }
+        });
+        document.getElementById('label_new').value = ''
+    }
+    function isIsrcFormatCorrect(isrc) {
+        return /^[a-zA-Z0-9]{12}$/.test(isrc);
+    }
+    function submit_releases_form() {
+        var upc_field = document.getElementById("upc_code");
+        var upc_field_check = document.getElementById("upc_code_check");
+        var reference_number = document.getElementById("reference_number");
+        var labels = document.getElementById("labels").value;
+        var selected_primary_genre = document.getElementById("primary_genere");
+        var selected_secondary_genre = document.getElementById("secondary_genere");
+        var selected_language = document.getElementById("language").value;
+        var cover_art_file = document.getElementById('cover_art_file_name').value;
+        var output_cover_art_file_src = document.getElementById('output_cover_art').src;
+    
+        if ((cover_art_file == '' || cover_art_file == null) && !(output_cover_art_file_src.includes('amazonaws.com'))) {
+            sendSweetAlert('basic', '', "Please upload cover art!");
+            return;
+        }
+
+        if (!upc_field_check.checked && upc_field.value == "") {
+            sendSweetAlert('basic', '', "UPC Code is not empty!, either check the box or enter a UPC Code!, Cannot have both!");
+            return;
+        }
+        if (upc_field_check.checked && upc_field.value != "") {
+            sendSweetAlert('basic', '', "UPC Code is not empty!, either check the box or enter a UPC Code!, Cannot have both!");
+            return;
+        }
+    
+        // Language Validation
+        if (selected_language == "No linguistic content") {
+            sendSweetAlert('basic', '', "Please select a language!");
+            return;
+        }
+    
+        // Artist Role Validation
+        const requiredRoles = ['Primary Artist', 'Lyricist', 'Composer', 'Producer'];
+        const additionalRoles = [
+            "Xylophone", "Whistle", "Vocals", "Violin", "Viola De Gamba", "Viola", "Trumpet",
+            "Trombone", "Tambourine", "Synthesizer", "Saxophone", "Recorder", "Rap", "Programming",
+            "Piano", "Percussion", "Organ", "Oboe", "Metallophone", "Lute", "Keyboards", "Horn",
+            "Harp", "Harmonica", "Guitar", "Flute", "Fiddle", "Ensemble", "Drums", "Clarinet",
+            "Choir", "Cello", "Bells"
+        ];
+        let primaryArtistCount = 0;
+        let additionalRolesCount = 0;
+    
+        // Confirm current_selected_artist_roles is properly populated
+        if (!Array.isArray(current_selected_artist_roles) || current_selected_artist_roles.length === 0) {
+            sendSweetAlert('error', '', "Artist roles not correctly populated. Please review selected roles.");
+            return;
+        }
+    
+        // Check if required roles are included
+        if (!requiredRoles.every(role => current_selected_artist_roles.includes(role))) {
+            sendSweetAlert('basic', '', "A Release must include each of the following artist roles: Primary Artist, Composer, Lyricist, Producer.");
+            return;
+        }
+    
+        // Debugging: Verify role names in the array
+        console.log("Selected Artist Roles:", current_selected_artist_roles);
+    
+        // Count 'Primary Artist' and additional roles
+        current_selected_artist_roles.forEach(role => {
+            if (role === 'Primary Artist') {
+                primaryArtistCount++;
+            } else if (additionalRoles.includes(role)) {
+                additionalRolesCount++;
+            }
+        });
+    
+        // Debugging: Check the counts for primary and additional roles
+        console.log("Primary Artist Count:", primaryArtistCount);
+        console.log("Additional Roles Count:", additionalRolesCount);
+    
+        // Check if there are enough additional roles for each primary artist
+        if (primaryArtistCount > 0 && additionalRolesCount < primaryArtistCount) {
+            const remainingSelections = primaryArtistCount - additionalRolesCount;
+            sendSweetAlert('warning', 'Selection Requirement Not Met', `Please select a role for each primary artist`);
+            return;
+        }
+    
+        // UPC and Labels Validation
+        if (!upc_field.value) {
+            upc_field_check.checked = true;
+        }
+        if (!labels) {
+            sendSweetAlert('basic', '', "Labels Field is empty!");
+            return;
+        }
+    
+        // Genre Validation
+        if (selected_primary_genre.value == "Select genre") {
+            sendSweetAlert('basic', '', "Please select Primary Genre!");
+            return;
+        }
+        if (selected_secondary_genre.value == "Select genre") {
+            selected_secondary_genre.value = "";
+        }
+        if (selected_primary_genre.value === selected_secondary_genre.value) {
+            sendSweetAlert('basic', '', "Primary and Secondary Genre cannot be the same!");
+            return;
+        }
+    
+        // Form submission with AJAX
+        let myform = document.getElementById("releases_form");
+        let fd = new FormData(myform);
+        set_loading("#in_save_release_info_btn", true, 0, "1.5rem", "1.5rem");
+        $.ajax({
+            url: "/releases/release_info/{{ primary_uuid }}",
+            data: fd,
+            type: 'POST',
+            processData: false,
+            contentType: false,
+            dataType: 'json'
+        }).done(function(response) {
+            var msg = (response && response.message) ? response.message : 'Saved.';
+            sendSweetAlert('info', '', msg);
+            if (response && response.upc_code !== undefined) {
+                current_upc_code = response.upc_code;
+            }
+            if (response && response.success) {
+                window.location.href = '/releases/licenses_info/{{ primary_uuid }}';
+                return;
+            }
+            set_loading("#in_save_release_info_btn", false, 0, "1.5rem", "1.5rem");
+        }).fail(function(xhr, status, err) {
+            set_loading("#in_save_release_info_btn", false, 0, "1.5rem", "1.5rem");
+            var msg = 'Request failed. Please try again.';
+            if (xhr && xhr.responseJSON && xhr.responseJSON.message) {
+                msg = xhr.responseJSON.message;
+            } else if (xhr && xhr.responseText && xhr.status !== 500) {
+                try {
+                    var o = JSON.parse(xhr.responseText);
+                    if (o.message) msg = o.message;
+                } catch (e) {}
+            }
+            sendSweetAlert('error', '', msg);
+        }).always(function() {
+            set_loading("#in_save_release_info_btn", false, 0, "1.5rem", "1.5rem");
+        });
+    }
+    
+    
+    function submit_licenses_form() {
+        license_holder_name = document.getElementById('license_holder_name');
+        copyright_recording_name = document.getElementById('copyright_recording_name');
+        digital_release_date = document.getElementById('digital_release_date');
+        console.log("digital Release date in format :",digital_release_date.value)
+        original_release_date = document.getElementById('original_release_date');
+        license_type_format_toggle = document.querySelector('input[name="license_type_format_toggle"]:checked');
+        if (!license_holder_name.value) {
+            sendSweetAlert('basic', '',"License Holder Name is empty!")
+            return;
+        }
+        else if (!license_type_format_toggle) {
+            sendSweetAlert('basic', '', "License Type Format is not selected!");
+            return;
+        }
+        else if (!copyright_recording_name.value) { 
+            sendSweetAlert('basic', '',"Copyright Text is empty!")
+            return;
+        }
+        else if (!digital_release_date.value) {
+            sendSweetAlert('basic', '',"Digital Release Date is empty!")
+            return;
+        }
+        else if (!original_release_date.value) {
+            sendSweetAlert('basic', '',"Original Release Date is empty!")
+            return;
+        }
+        // Convert dates from mm/dd/yyyy to dd/mm/yyyy format
+        let digital_value = document.getElementById("digital_release_date").value;
+        let original_value = document.getElementById("original_release_date").value;
+        
+        // Parse the dates and reformat
+        let [digital_month, digital_day, digital_year] = digital_value.split('/');
+        let [original_month, original_day, original_year] = original_value.split('/');
+        
+        // Create date objects with the reformatted dates
+        let digital_date = new Date(`${digital_year}-${digital_month}-${digital_day}`);
+        let original_date = new Date(`${original_year}-${original_month}-${original_day}`);
+        
+        var diff = digital_date - original_date;
+        if (diff >= 0) {
+            let myform = document.getElementById("licenses_form");
+            let fd = new FormData(myform);
+            fd.append(name = "upc_code", value = current_upc_code)
+            set_loading("#in_save_licenses_info_btn", true, 0, "1.5rem", "1.5rem");
+            $.ajax({
+                url: "/releases/licenses_info/{{ primary_uuid }}", data: fd, type: 'POST', processData: false, contentType: false
+            }).then(function (response) {
+                set_loading("#in_save_licenses_info_btn", true, 0, "1.5rem", "1.5rem");
+                sendSweetAlert('info', '',response.message);
+                if (response.success) {
+                    window.location.href = '/releases/tracks_info/{{ primary_uuid }}'
+                }
+            });
+        }
+        else {
+            sendSweetAlert('basic', '',"Digital Release Date can not be less than Original Release Date!")
+        }
+    }
+    function submit_tracks_form() {
+        
+        var isrc_code_track = document.getElementById("isrc_code_track");
+        var isrc_code_track_check = document.getElementById("isrc_code_track_check");
+        var publishing_rights_name = document.getElementById('publishing_rights_name');
+        var audio_track = document.getElementById('audio_file_track').value;
+        var audio_src = document.getElementById('audio').src;
+        var file_upload_finalizer = $('.textbox')
+        var track_title = document.getElementById('title_track').value;
+
+        if (track_title.trim() == "") {
+            sendSweetAlert('basic', 'Track Title',"Track Title is empty!");
+            return;
+        }
+
+        if ((audio_track == '' || audio_track == null) 
+            && 
+            !(audio_src.includes('amazonaws.com')))
+            {
+            sendSweetAlert('basic', 'Audio Track',"Please upload audio track!")
+            return;
+        }
+        if (file_upload_finalizer.text() != "Uploaded Successfully" && file_upload_finalizer.text() != "") {
+
+            sendSweetAlert('basic', 'Audio Track',"Please wait for audio track to upload!")
+            set_loading("#in_preview_dist_info_btn", true, 0, "1.5rem", "1.5rem");
+            return
+        } 
+
+        if (!isrc_code_track_check.checked && isrc_code_track.value == "") {
+            console.log("ISRC Code is not empty!, either check the box or enter a ISRC Code!, Cannot have both! isrc_code_track.checked and isrc_code_track.value: ", isrc_code_track.checked, isrc_code_track.value);
+            sendSweetAlert('basic', '', "ISRC Code is not empty!, either check the box or enter a ISRC Code!, Cannot have both!");
+            return;
+        }
+        if (isrc_code_track_check.checked && isrc_code_track.value != "") {
+            sendSweetAlert('basic', '', "ISRC Code is not empty!, either check the box or enter a ISRC Code!, Cannot have both!");
+            return;
+        }
+        
+        if (!isrc_code_track.value) {
+            isrc_code_track_check.checked = true;
+        }
+        if (isrc_code_track.value && !isIsrcFormatCorrect(isrc_code_track.value)) {
+            sendSweetAlert('basic', 'ISRC',"ISRC must be exactly 12 alphanumeric characters. Please review the provided ISRC.");
+            return;
+        }
+        var selected_primary_genre = document.getElementById("primary_genere_track");
+        var selected_secondary_genre = document.getElementById("secondary_genere_track");
+        if (selected_primary_genre.value == "Select genre") {
+            sendSweetAlert('basic', 'Primary Genre',"Please select Primary Genre!");
+            return;
+        }
+        if (selected_secondary_genre.value == "Select genre") {
+            selected_secondary_genre.value = "";
+        }
+        if (selected_primary_genre.value ===  selected_secondary_genre.value){
+            sendSweetAlert('basic', 'Primary and Secondary Genre',"Primary and Secondary Genre cannot be same!")
+            return;
+        }
+        if (!current_selected_artist_roles.includes('Primary Artist') ||
+            !current_selected_artist_roles.includes('Lyricist') ||
+            !current_selected_artist_roles.includes('Composer') ||
+            !current_selected_artist_roles.includes('Producer')
+        ) {
+            sendSweetAlert('basic', 'Artist Role',"A Track must include each of the following artist roles: Primary Artist, Composer, Lyricist, Producer.")
+            return;
+        }
+        if (!publishing_rights_name.value) {
+            sendSweetAlert('basic', 'Publishing Rights Name',"Publishing Rights Name is empty!");
+            return;
+        }
+
+        // TODO: validate splits submitted in tracks form
+        
+        let myform = document.getElementById("tracks_form");
+        let fd = new FormData(myform);
+        fd.append(name = "title_track", value = track_title)
+        set_loading("#in_save_single_track_info_btn", true, 0, "1.5rem", "1.5rem");
+        $.ajax({
+            url: "/releases/tracks_info/{{ primary_uuid }}/track/{{ primary_track_uuid }}", data: fd, type: 'POST', processData: false, contentType: false
+        }).then(function (response) {
+            set_loading("#in_save_single_track_info_btn", true, 0, "1.5rem", "1.5rem");
+            sendSweetAlert('info', '', response.message);
+            if (response.success) {
+                window.location.href = '/releases/preview_distribute_info/{{ primary_uuid }}'
+            }
+        });
+    }
+    function submit_preview_distribute() {
+        set_loading("#in_preview_dist_info_btn", true, 0, "1.5rem", "1.5rem");
+        $.ajax({
+            url: "/releases/preview_distribute_info/{{ primary_uuid }}", type: 'POST',
+        }).then(function (response) {
+            set_loading("#in_preview_dist_info_btn", false, 0, "1.5rem", "1.5rem");
+            if (response.success) {
+                if (response.sonosuite) {
+                    var s = response.sonosuite;
+                    var text = s.message || (s.success ? 'Sent to all stores.' : ('Error: ' + (s.error || 'Unknown')));
+                    var el = document.getElementById('sonosuite-results-text');
+                    if (el) el.textContent = text;
+                    var block = document.getElementById('sonosuite-results-modal');
+                    if (block) block.style.display = 'block';
+                }
+                $('#modal-opener').click();
+                // Reload so status shows Pending approval / Approve button
+                setTimeout(function() { window.location.reload(); }, 800);
+            } else {
+                sendSweetAlert('error', '', response.message);
+            }
+        }).fail(function (xhr) {
+            set_loading("#in_preview_dist_info_btn", false, 0, "1.5rem", "1.5rem");
+            var msg = (xhr.responseJSON && xhr.responseJSON.message) ? xhr.responseJSON.message : null;
+            if (!msg && xhr.responseText) {
+                try { var p = JSON.parse(xhr.responseText); if (p && p.message) msg = p.message; } catch (e) {}
+            }
+            if (!msg && xhr.responseText && xhr.responseText.length < 400) msg = xhr.responseText;
+            if (!msg) msg = 'Request failed. HTTP ' + (xhr.status || '0') + (xhr.status === 0 ? ' (check network)' : '');
+            sendSweetAlert('error', '', msg);
+        });
+    }
+    function reload_page() {
+        window.location.reload();
+    }
+    function createAndSetSelectOptions(selectId, data, selectedOption) {
+        var array = data;
+        var selectList = document.getElementById(selectId);
+        for (var i = 0; i < array.length; i++) {
+            var option = document.createElement("option");
+            option.value = array[i];
+            option.text = array[i];
+            if (String(selectedOption) === String(array[i])) {
+                option.selected = true;
+            }
+            selectList.appendChild(option);
+        }
+    }
+    function generateArrayOfYears(noOfYears) {
+        var max = new Date().getFullYear()
+        var min = max - noOfYears
+        max = max + noOfYears
+        var years = []
+
+        for (var i = min; i <= max; i++) {
+            years.push(i)
+        }
+        return years
+    }
+    function update_release_title() {
+        set_loading("#update_release_title_btn", true, 0, "1rem", "1rem");
+        new_release_name = document.getElementById("update_release_title_input").value;
+        
+        // Check if name contains only alphanumeric characters
+        const alphanumericRegex =/^[a-zA-Z0-9\s|()#&\-',."\!\?\[\]:\/\+\%\*]+$/;
+
+        
+        if (new_release_name.trim() != "") {
+            if (!alphanumericRegex.test(new_release_name.trim())) {
+                set_loading("#update_release_title_btn", false, 0, "1rem", "1rem");
+                sendSweetAlert('basic', '', "Release name can only contain alphanumeric characters and spaces!");
+                return;
+            }
+            
+            $.ajax({
+                url: "/releases/update_release_title/{{ primary_uuid }}/" + new_release_name,
+                type: 'POST',
+            }).then(function (response) {
+                set_loading("#update_release_title_btn", true, 0, "1rem", "1rem");
+                sendSweetAlert('basic', '',response.message)
+            });
+        }
+        else {
+            set_loading("#update_release_title_btn", false, 0, "1rem", "1rem");
+            sendSweetAlert('basic', '',"Please enter valid release name!");
+        }
+
+    }
+</script>
+<style>
+    input::file-selector-button {
+        background-color: #DF9C2A;
+        color: white;
+        padding: 0.5em;
+        border: thin solid white;
+        border-radius: 3px;
+    }
+
+    .radio {
+        background: white;
+        padding: 4px;
+        border-radius: 3px;
+        border: solid 1px #676767bd;
+        position: relative;
+    }
+
+    .radio input {
+        width: auto;
+        height: 100%;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        appearance: none;
+        outline: none;
+        cursor: pointer;
+        border-radius: 2px;
+        padding: 4px 8px;
+        background: white;
+        color: #322222bd;
+        font-size: 14px;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+        transition: all 100ms linear;
+    }
+
+    .radio input:checked {
+        background-color:#1F2937;
+        color: white;
+        box-shadow: 0 1px 1px #0000002e;
+        text-shadow: 0 1px 0px #79485f7a;
+    }
+
+    .radio input:before {
+        content: attr(label);
+        display: inline-block;
+        text-align: center;
+        width: 100%;
+    }
+
+    .fbutton:focus {
+        outline: 0;
+    }
+
+    .fbutton {
+        background-color: #DF9C2A;
+        border: none;
+        border-radius: 8%;
+        padding: 0.8%;
+        color: white;
+        text-align: center;
+        text-decoration: none;
+        cursor: pointer;
+        outline: none;
+        -webkit-transition-duration: 0.4s;
+        transition-duration: 0.4s;
+    }
+
+    .fbuttonhover:hover {
+        box-shadow: 0 8px 12px 0 rgba(0, 0, 0, 0.24), 0 17px 50px 0 rgba(0, 0, 0, 0.19);
+    }
+</style>
+
+<div class="row">
+    <div class="col-12 mb-4">
+
+        <div id="collapseGroup">
+            <p>
+                <a href="/releases/release_info/{{ primary_uuid }}" {% if page_name == 'release_info' %} class="btn btn-primary mt-1 mb-1" {% else %} class="btn  btn-secondary mt-1 mb-1" {% endif %}
+                    type="button">Release</a>
+
+                <a href="/releases/licenses_info/{{ primary_uuid }}" {% if page_name == 'licenses_info' %} class="btn  btn-primary mt-1 mb-1" {% else %} class="btn  btn-secondary mt-1 mb-1" {% endif %}
+                    type="button">Licenses</a>
+
+                <a href="/releases/tracks_info/{{ primary_uuid }}" {% if page_name == 'tracks_info' or page_name == 'single_tracks_info' %} class="btn  btn-primary mt-1 mb-1" {% else %} class="btn  btn-secondary mt-1 mb-1" {% endif %}
+                    type="button">Tracks</a>
+
+                <a href="/releases/preview_distribute_info/{{ primary_uuid }}"
+                {% if page_name == 'preview_distribute_info' %} class="btn  btn-primary mt-1 mb-1" {% else %} class="btn  btn-secondary mt-1 mb-1" {% endif %} type="button">Preview &
+                    Distribute</a>
+            </p>
+            {%block rl_content_page %} {% endblock rl_content_page %}
+
+        </div>
+    </div>
+</div>
+<script>
+    if ('release_info' == "{{ page_name }}") {
+        createAndSetSelectOptions('album_format', album_format_options, '{{ rl_data.album_format }}')
+        createAndSetSelectOptions('primary_genere', genere_options, '{{ rl_data.primary_genere }}')
+        createAndSetSelectOptions('secondary_genere', genere_options, '{{ rl_data.secondary_genere }}')
+        // Set default language to English if not set or if it's the model default (Afrikaans)
+        var defaultLanguage = '{{ rl_data.language|default:"" }}';
+        if (!defaultLanguage || defaultLanguage.trim() === '' || defaultLanguage === 'Afrikaans') {
+            defaultLanguage = 'English';
+        }
+        createAndSetSelectOptions('language', language_options, defaultLanguage)
+        createAndSetSelectOptions('artist_type', artists_type_options, 'None')
+    }
+
+    if ('licenses_info' == "{{ page_name }}") {
+        createAndSetSelectOptions('price_category', price_category_options, '{{ rl_data.price_category }}')
+    }
+
+    if ('single_tracks_info' == "{{ page_name }}") {
+        createAndSetSelectOptions('artist_type_track', artists_type_options, 'None')
+        createAndSetSelectOptions('primary_genere_track', genere_options, '{{ rl_data.primary_genere_track }}')
+        createAndSetSelectOptions('secondary_genere_track', genere_options, '{{ rl_data.secondary_genere_track }}')
+        createAndSetSelectOptions('language_track', language_options, '{{ rl_data.language_track }}')
+        createAndSetSelectOptions('explicit_lyrics_track', explicit_lyrics_options, '{{ rl_data.explicit_lyrics_track }}')
+    }
+
+</script>
+{% endblock content %}

@@ -1,0 +1,445 @@
+{% extends 'volt_releases_base.html' %}
+
+{% block rl_content_page %}
+{% autoescape off %}
+<!-- Preview & Distribute  Section Start -->
+<script>
+    function delete_release() {
+        $.ajax({
+            type: "GET",
+            url: '/releases/delete/{{ primary_uuid }}',
+        }).then(function (response) {
+            sendSweetAlert('info', '', response.message);
+            window.location.href="/releases"
+        });
+    }
+    function takedown_request() {
+        $.ajax({
+            type: "GET",
+            url: '/releases/takedown/{{ primary_uuid }}/{{ rl_data.upc_code }}/{{ request.user }}',
+        }).then(function (response) {
+            var msg = response.message || 'Your request to takedown this release has been submitted.';
+            sendSweetAlert(response.success ? 'success' : 'info', '', msg);
+            if (response.success) {
+                $('#takedown_request_modal').modal('hide');
+                window.location.reload();
+            }
+        }).fail(function () {
+            sendSweetAlert('error', '', 'Takedown request failed. Please try again.');
+        });
+    }
+    function unpublish_request() {
+        $.ajax({
+            type: "GET",
+            url: '/releases/unpublish/{{ primary_uuid }}/{{ rl_data.upc_code }}/{{ request.user }}',
+        }).then(function (response) {
+            sendSweetAlert('info', '', response.message);
+            window.location.reload();
+        });
+    }
+    function getCookie(name) {
+        var match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+        return match ? match[2] : null;
+    }
+    function getCSRFToken() {
+        return getCookie("csrftoken") || document.querySelector("[name=csrfmiddlewaretoken]")?.value || "";
+    }
+    function submit_for_approval() {
+        set_loading("#btn_submit_approval", true, 0, "1.5rem", "1.5rem");
+        $.ajax({
+            type: "POST",
+            url: "/releases/{{ primary_uuid }}/submit-for-approval/",
+            headers: { "X-CSRFToken": getCSRFToken(), "Content-Type": "application/json" },
+            data: JSON.stringify({}),
+        }).then(function (response) {
+            set_loading("#btn_submit_approval", false, 0, "1.5rem", "1.5rem");
+            if (response.success) {
+                sendSweetAlert('success', '', response.message);
+                window.location.reload();
+            } else {
+                sendSweetAlert('error', '', response.message || 'Failed to submit for approval.');
+            }
+        }).fail(function (xhr) {
+            set_loading("#btn_submit_approval", false, 0, "1.5rem", "1.5rem");
+            var msg = (xhr.responseJSON && xhr.responseJSON.message) ? xhr.responseJSON.message : null;
+            if (!msg && xhr.responseText) {
+                try {
+                    var parsed = JSON.parse(xhr.responseText);
+                    if (parsed && parsed.message) msg = parsed.message;
+                } catch (e) {}
+            }
+            if (!msg && xhr.responseText && xhr.responseText.length < 400) msg = xhr.responseText;
+            if (!msg) msg = 'Request failed. HTTP ' + (xhr.status || '0') + (xhr.status === 0 ? ' (check network or CORS)' : '');
+            sendSweetAlert('error', '', msg);
+        });
+    }
+    function approve_release() {
+        set_loading("#btn_approve", true, 0, "1.5rem", "1.5rem");
+        $.ajax({
+            type: "POST",
+            url: "/releases/{{ primary_uuid }}/approve/",
+            headers: { "X-CSRFToken": getCSRFToken(), "Content-Type": "application/json" },
+            data: JSON.stringify({}),
+            timeout: 300000,
+        }).then(function (response) {
+            set_loading("#btn_approve", false, 0, "1.5rem", "1.5rem");
+            if (response.success) {
+                var msg = response.message;
+                sendSweetAlert('success', '', msg);
+                window.location.reload();
+            } else {
+                sendSweetAlert('error', '', response.message || 'Failed to approve.');
+            }
+        }).fail(function (xhr) {
+            set_loading("#btn_approve", false, 0, "1.5rem", "1.5rem");
+            var msg = (xhr.responseJSON && xhr.responseJSON.message) ? xhr.responseJSON.message : (xhr.status === 0 || xhr.status === undefined ? 'Request timed out. Delivery to all stores can take 2–5 min. Check if the release was approved and delivered (refresh the page) or try again.' : ('Request failed. (HTTP ' + xhr.status + ')'));
+            sendSweetAlert('error', '', msg);
+        });
+    }
+    function reject_release() {
+        if (!confirm('Reject this release? It will not be sent to stores and can be resubmitted for approval.')) return;
+        set_loading("#btn_reject", true, 0, "1.5rem", "1.5rem");
+        $.ajax({
+            type: "POST",
+            url: "/releases/{{ primary_uuid }}/reject/",
+            headers: { "X-CSRFToken": getCSRFToken(), "Content-Type": "application/json" },
+            data: JSON.stringify({}),
+        }).then(function (response) {
+            set_loading("#btn_reject", false, 0, "1.5rem", "1.5rem");
+            if (response.success) {
+                sendSweetAlert('success', '', response.message);
+                window.location.reload();
+            } else {
+                sendSweetAlert('error', '', response.message || 'Failed to reject.');
+            }
+        }).fail(function (xhr) {
+            set_loading("#btn_reject", false, 0, "1.5rem", "1.5rem");
+            var msg = (xhr.responseJSON && xhr.responseJSON.message) ? xhr.responseJSON.message : ('Request failed. (HTTP ' + (xhr.status || '') + ')');
+            sendSweetAlert('error', '', msg);
+        });
+    }
+    function ddex_deliver_audiomack() {
+        set_loading("#btn_ddex_audiomack", true, 0, "1.5rem", "1.5rem");
+        $.ajax({
+            type: "POST",
+            url: "/releases/{{ primary_uuid }}/ddex-deliver-audiomack/",
+            headers: { "X-CSRFToken": getCSRFToken(), "Content-Type": "application/json" },
+            data: JSON.stringify({}),
+        }).then(function (response) {
+            set_loading("#btn_ddex_audiomack", false, 0, "1.5rem", "1.5rem");
+            if (response.success) {
+                sendSweetAlert('success', '', response.message || 'DDEX delivery for Audiomack & Gaana completed.');
+            } else {
+                sendSweetAlert('error', '', response.message || 'DDEX delivery failed.');
+            }
+        }).fail(function (xhr) {
+            set_loading("#btn_ddex_audiomack", false, 0, "1.5rem", "1.5rem");
+            var msg = (xhr.responseJSON && xhr.responseJSON.message) ? xhr.responseJSON.message : ('Request failed. (HTTP ' + (xhr.status || '') + ')');
+            sendSweetAlert('error', '', msg);
+        });
+    }
+    function ddex_deliver_apple_music() {
+        set_loading("#btn_ddex_apple_music", true, 0, "1.5rem", "1.5rem");
+        $.ajax({
+            type: "POST",
+            url: "/releases/{{ primary_uuid }}/ddex-deliver-apple-music/",
+            headers: { "X-CSRFToken": getCSRFToken(), "Content-Type": "application/json" },
+            data: JSON.stringify({}),
+            timeout: 300000,
+        }).then(function (response) {
+            set_loading("#btn_ddex_apple_music", false, 0, "1.5rem", "1.5rem");
+            if (response.success) {
+                sendSweetAlert('success', '', response.message || 'Apple Music (Merlin Bridge) delivery completed.');
+            } else {
+                sendSweetAlert('error', '', response.message || 'Apple Music delivery failed.');
+            }
+        }).fail(function (xhr) {
+            set_loading("#btn_ddex_apple_music", false, 0, "1.5rem", "1.5rem");
+            var msg = (xhr.responseJSON && xhr.responseJSON.message) ? xhr.responseJSON.message : (xhr.status === 0 || xhr.status === undefined ? 'Request timed out or network error. Delivery can take 1–2 min (S3 + SFTP). Try again or run: python manage.py deliver_apple_music {{ primary_uuid }}' : ('Request failed. (HTTP ' + xhr.status + ')'));
+            sendSweetAlert('error', '', msg);
+        });
+    }
+    function ddex_takedown_apple_music() {
+        set_loading("#btn_ddex_takedown_apple_music", true, 0, "1.5rem", "1.5rem");
+        $.ajax({
+            type: "POST",
+            url: "/releases/{{ primary_uuid }}/ddex-takedown-apple-music/",
+            headers: { "X-CSRFToken": getCSRFToken(), "Content-Type": "application/json" },
+            data: JSON.stringify({}),
+            timeout: 60000,
+        }).then(function (response) {
+            set_loading("#btn_ddex_takedown_apple_music", false, 0, "1.5rem", "1.5rem");
+            if (response.success) {
+                sendSweetAlert('success', '', response.message || 'Apple Music (Merlin Bridge) takedown sent.');
+            } else {
+                sendSweetAlert('error', '', response.message || 'Apple Music takedown failed.');
+            }
+        }).fail(function (xhr) {
+            set_loading("#btn_ddex_takedown_apple_music", false, 0, "1.5rem", "1.5rem");
+            var msg = (xhr.responseJSON && xhr.responseJSON.message) ? xhr.responseJSON.message : (xhr.status === 0 || xhr.status === undefined ? 'Request timed out or network error.' : ('Request failed. (HTTP ' + xhr.status + ')'));
+            sendSweetAlert('error', '', msg);
+        });
+    }
+</script>
+<div class="row">
+    <div class="col">
+        <div class="card">
+            <div class="card-header card-header-primary">
+                <h3 class="card-title">Preview and Distribute</h3>
+            </div>
+            <div class="card-body" id="preview_and_distribute">
+                <form>
+                    <!-- Distribute / Submit for approval (no Sonosuite branding) -->
+                    <div class="row mb-3" style="background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 6px; padding: 12px 16px;">
+                        <div class="col-12">
+                            {% if can_trigger_sonosuite|default:False %}
+                                {% if approval_status == "pending_approval" and not is_published %}
+                                    <span class="me-2">Release is pending. One click will approve and deliver to all configured stores (Audiomack, Gaana, TikTok, Apple Music, etc.) using each store's method.</span>
+                                    <button id="btn_approve" type="button" class="btn btn-success btn-sm" onclick="approve_release()">Approve &amp; deliver to all stores</button>
+                                    <button id="btn_reject" type="button" class="btn btn-danger btn-sm ms-1" onclick="reject_release()">Reject</button>
+                                {% elif not is_published and approval_status != "pending_approval" %}
+                                    <span class="me-2">Distribute this release to all stores.</span>
+                                    <button id="in_preview_dist_info_btn" type="button" class="btn btn-primary btn-sm" onclick="submit_preview_distribute()" {% if not can_be_distributed %}disabled title="Upload cover art and all track audio first"{% endif %}>Distribute this release</button>
+                                {% else %}
+                                    <span class="text-success me-2">This release has been distributed.</span>
+                                    <button type="button" class="btn btn-success btn-sm" disabled>Distributed</button>
+                                {% endif %}
+                            {% else %}
+                                {% if approval_status == "pending_approval" %}
+                                    <button type="button" class="btn btn-warning btn-sm" disabled>Pending approval</button>
+                                    <span class="ms-2 text-muted">Admin will approve and send to stores.</span>
+                                {% elif not is_published %}
+                                    <span class="me-2">Request delivery: submit for admin approval.</span>
+                                    <button id="btn_submit_approval" type="button" class="btn btn-primary btn-sm" {% if not can_be_distributed %}disabled title="Upload cover art and all track audio first"{% endif %} onclick="submit_for_approval()">Submit for approval</button>
+                                {% else %}
+                                    <button type="button" class="btn btn-success btn-sm" disabled>Distributed</button>
+                                {% endif %}
+                            {% endif %}
+                        </div>
+                    </div>
+                    <!-- DDEX delivery for Audiomack, Gaana & TikTok (Admin only) -->
+                    {% if can_use_ddex_delivery|default:False %}
+                    <div class="row mb-3" style="background-color: #e8f4fd; border: 1px solid #b6d4fe; border-radius: 6px; padding: 12px 16px;">
+                        <div class="col-12">
+                            <span class="me-2">Deliver to Audiomack, Gaana & TikTok: XML + artwork + tracks</span>
+                            <button id="btn_ddex_audiomack" type="button" class="btn btn-outline-primary btn-sm" onclick="ddex_deliver_audiomack()" title="Build DDEX ERN 4.3 and deliver to Audiomack, Gaana and TikTok. Admin only.">DDEX delivery for Audiomack, Gaana &amp; TikTok</button>
+                        </div>
+                    </div>
+                    {% endif %}
+                    <!-- Deliver to Apple Music only / Takedown from Apple Music (Admin only) -->
+                    {% if can_use_ddex_delivery|default:False %}
+                    <div class="row mb-3" style="background-color: #f5f0ff; border: 1px solid #c4b5fd; border-radius: 6px; padding: 12px 16px;">
+                        <div class="col-12">
+                            <span class="me-2">Deliver to Apple Music only (Merlin Bridge)</span>
+                            <button id="btn_ddex_apple_music" type="button" class="btn btn-outline-secondary btn-sm" onclick="ddex_deliver_apple_music()" title="Build Apple iTunes Importer (music5.3) and upload to Merlin Bridge SFTP. Admin only." {% if not can_be_distributed %}disabled{% endif %}>Deliver to Apple Music only</button>
+                            <span class="me-2 ms-3">Takedown from Apple Music (Merlin Bridge)</span>
+                            <button id="btn_ddex_takedown_apple_music" type="button" class="btn btn-outline-danger btn-sm" onclick="ddex_takedown_apple_music()" title="Send PurgeReleaseMessage (takedown) to Merlin Bridge SFTP. Admin only.">Takedown from Apple Music only</button>
+                        </div>
+                    </div>
+                    {% endif %}
+                    <div class="row" style="text-align: left;">
+                        <div class="col-lg-12">
+                            <div class="row mb-1 mt-1">
+                                <div class="col-lg-4 col-md-6 col-sm-12">
+                                    <img id="preview_distribute_release_image"
+                                        style="fill:gray;height: 300px;width: 300px;background-color: gray;"
+                                        src="{{ rl_data.cover_art_path }}">
+                                </div>
+                                <br/>
+                                <div class="col-lg-8 col-md-6 col-sm-12">
+                                    <div class="row">
+                                        <!-- Title in bigs -->
+                                        <div class="col-lg-12 mt-2">
+                                            <h6>Release Title:</h6>
+                                            <h6>{{ rl_data.title }}</h6>
+                                            <br />
+                                        </div>
+                                        <!-- Other properties -->
+                                        <div class="col-lg-12">
+                                            <div class="row">
+                                                <div class="col-lg-6 col-md-6 col-sm-12">
+                                                    <h6>Genres:</h6>
+                                                    <p id='pd_genere'> {{ rl_data.primary_genre }} </p>
+                                                </div>
+                                                <div class="col-lg-6 col-md-6 col-sm-12">
+                                                    <h6>Release date:</h6>
+                                                    <p id='pd_release_date'> {{ rl_data.release_date }} </p>
+                                                </div>
+                                                <div class="col-lg-6 col-md-6 col-sm-12">
+                                                    <h6>Label:</h6>
+                                                    <p id='pd_label'> {{ rl_data.label }} </p>
+                                                </div>
+                                                <div class="col-lg-6 col-md-6 col-sm-12">
+                                                    <h6>Rights owner:</h6>
+                                                    <p id='pd_right_owner'> {{ rl_data.rights_owner }} </p>
+                                                </div>
+                                                <div class="col-lg-6 col-md-6 col-sm-12">
+                                                    <h6>Publishing owner:</h6>
+                                                    <p id='pd_publishing_owner'> {{ rl_data.publishing_owner }} </p>
+                                                </div>
+                                                <div class="col-lg-6 col-md-6 col-sm-12">
+                                                    <h6>Parental advisory:</h6>
+                                                    <p id='pd_parental_advisory'> N/A </p>
+                                                </div>
+                                                <div class="col-lg-6 col-md-6 col-sm-12">
+                                                    <h6>Release UPC code:</h6>
+                                                    <p id='pd_release_upc_code'> {{ rl_data.upc_code }} </p>
+                                                </div>
+                                                <div class="col-lg-6 col-md-6 col-sm-12">
+                                                    <h6>Reference number:</h6>
+                                                    <p id='pd_reference_number'> {{ rl_data.reference_number }} </p>
+                                                </div>
+
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-12 col-lg-12">
+                                <div id="preview_and_distribute_tracks_table" class="table-responsive">
+
+                                </div>
+                            </div>
+                            {% if not can_be_distributed and validation_message %}
+                            <div class="col-lg-12 mt-3">
+                                <div class="alert alert-warning" role="alert">
+                                    <strong>Cannot distribute yet</strong>
+                                    <p class="mb-0 mt-2" style="white-space: pre-line;">{{ validation_message }}</p>
+                                </div>
+                            </div>
+                            {% endif %}
+                            <div class="col-lg-12">
+                                <div class="row mb-1 mt-1">
+                                    <div class="col-lg-6">
+                                    </div>
+                                    <div class="col-lg-6" style=" text-align: right;">
+                                        {% if is_published != 1 or requesting_user_role == "admin" %}
+                                            <button type="button" onclick="delete_release()" class="btn btn-danger">
+                                                Delete Release
+                                            </button>
+                                        {% endif %}
+                                        {% if requesting_user_role == "admin" and is_published == 1 %}
+                                            <button type="button" onclick="unpublish_request()" class="btn btn-primary">
+                                                Unpublish
+                                            </button>
+                                        {% endif %}
+                                        {% if is_published == 1 %}
+                                            {% if rl_data.takedown_requested %}
+                                                <button type="button" class="btn btn-gray">
+                                                    Takedown Request Submitted (In Review)
+                                                </button>
+                                            {% else %}
+                                                <button id="takedown_request_button" type="button"
+                                                    class="btn btn-danger" data-bs-toggle="modal"
+                                                    data-bs-target="#takedown_request_modal">Takedown Request
+                                                </button>
+                                            {% endif %}
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Button Modal -->
+                        <button type="button" id="modal-opener" class="btn btn-block btn-gray-800 mb-3"
+                            data-bs-toggle="modal" data-bs-target="#modal-default" hidden></button>
+                        <!-- Modal Content -->
+                        <div class="modal fade" id="modal-default" tabindex="-1" role="dialog"
+                            aria-labelledby="modal-default" aria-hidden="true">
+                            <div class="modal-dialog modal-dialog-centered" role="document">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h3>Exports</h3>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal"
+                                            aria-label="Close" onclick="reload_page()"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <h4>{{ rl_data.title }}</h4>
+                                        <button class="btn btn-success" disabled>This export has been created.</button>
+                                        <div id="sonosuite-results-modal" style="display:none; margin-top:12px; padding:12px; background:#e8f4fd; border:1px solid #0d6efd; border-radius:8px;">
+                                            <span id="sonosuite-results-text"></span>
+                                        </div>
+                                        <br>
+                                        <ul>
+                                            <li>7 Digital</li>
+                                            <li>AWA</li>
+                                            <li>Amazon Music</li>
+                                            <li>Anghami</li>
+                                            <li>Audible Magic Fingerprinting</li>
+                                            <li>BMAT</li>
+                                            <li>Boomplay</li>
+                                            <li>Claro musica</li>
+                                            <li>Deezer</li>
+                                            <li>Facebook Rights Manager</li>
+                                            <li>Gaana</li>
+                                            <li>Gracenote</li>
+                                            <li>Hungama</li>
+                                            <li>iHeart</li>
+                                            <li>iTunes/Apple Music</li>
+                                            <li>JOOX</li>
+                                            <li>Jaxsta</li>
+                                            <li>JioSaavn</li>
+                                            <li>KDigital Media</li>
+                                            <li>Kanjian</li>
+                                            <li>Kkbox</li>
+                                            <li>Lickd</li>
+                                            <li>MixCloud</li>
+                                            <li>NetEase Cloud Music</li>
+                                            <li>Pandora</li>
+                                            <li>Peloton</li>
+                                            <li>Resso</li>
+                                            <li>Rhapsody/Napster</li>
+                                            <li>SoundCloud</li>
+                                            <li>Spotify</li>
+                                            <li>Tencent</li>
+                                            <li>Tidal</li>
+                                            <li>Tik Tok</li>
+                                            <li>Twitch</li>
+                                            <li>Wynk</li>
+                                            <li>YouTube Audio Content ID</li>
+                                            <li>Youtube Music</li>
+                                        </ul>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-link text-gray-600 ms-auto"
+                                            data-bs-dismiss="modal" onclick="reload_page()">Close</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- End of Modal Content -->
+                        <div class="modal fade" id="takedown_request_modal" tabindex="-1" role="dialog"
+                            aria-labelledby="takedown_request_modal" aria-hidden="true">
+                            <div class="modal-dialog modal-dialog-centered" role="document">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h3>{{ rl_data.title }}</h3>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal"
+                                            aria-label="Close"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <h6>Do you really want to takedown this release?</h6>
+                                        <p class="text-muted small mb-0 mt-2">This will send a takedown to <strong>all stores</strong>: Audiomack, Gaana, TikTok, and Apple Music. An email will be sent to support with your request.</p>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                        <button type="button" class="btn btn-danger" onclick="takedown_request()">Yes, takedown from all stores</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+    let pd_tracks_table = `{{ rl_data.tracks_table }}`
+    $("#preview_and_distribute_tracks_table").html(_.unescape(pd_tracks_table));
+    var preview_and_distribute_tracks_table = document.getElementById('data_table');
+    if (preview_and_distribute_tracks_table) {
+        const dataTable = new simpleDatatables.DataTable(preview_and_distribute_tracks_table);
+    }
+</script>
+<!-- Preview & Distribute Section End -->
+{% endautoescape %}
+{% endblock rl_content_page %}

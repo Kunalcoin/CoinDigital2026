@@ -1,0 +1,48 @@
+{% extends 'volt_base.html' %}
+{% load static %}
+{% block content %}
+<div class="row">
+  <div class="col-12 mb-4">
+    {% if success %}
+    <div class="alert alert-success" role="alert">
+      User successfully added!
+    </div>
+    {% endif %}
+    {% if edit_success %}
+    <div class="alert alert-success" role="alert">
+      User successfully updated!
+    </div>
+    {% endif %}
+    <div class="card border-0 shadow components-section">
+      <div class="card-header card-header-primary">
+        <h3 class="card-title">User Management</h3>
+      </div>
+      <div class="card-body">
+        <div class="card-body table-responsive" id="table_load">
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+
+
+  function get_all_users() {
+    set_loading('#table_load');
+    $.ajax({
+      type: "GET",
+      url: "{% url 'manage_users_get_all_users' %}",  // URL to your view that serves new info
+    }).then(function (response) {
+      set_loading('#table_load');
+      $("#table_load").html(response.table);
+      var dataTableUsers = document.getElementById('data_table');
+      if (dataTableUsers) {
+        const dataTable = new simpleDatatables.DataTable(dataTableUsers);
+      }
+    });
+
+  }
+  get_all_users();
+</script>
+
+{% endblock content %}

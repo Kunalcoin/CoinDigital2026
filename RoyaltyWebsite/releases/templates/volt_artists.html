@@ -1,0 +1,275 @@
+{% extends 'volt_base.html' %}
+{% autoescape off %}
+
+{% block content %}
+<script>
+  $(document).ready(function () {
+    $(window).keydown(function (event) {
+      if (event.keyCode == 13) {
+        event.preventDefault();
+        return false;
+      }
+    });
+  });
+  function openAppleMusicModal() {
+    $('#apple-music-modal').modal('show');
+  }
+  function openSpotifyModal() {
+    $('#spotify-modal').modal('show');
+  }
+</script>
+{% if message %}
+<div class="alert alert-success">
+  {{ message }}
+</div>
+{% endif %}
+<div class="row">
+  <div class="col-12 mb-4">
+    <div class="card border-0 shadow components-section">
+      <div class="card-header card-header-primary">
+        <div class="row">
+          <div class="col-lg-6 col-md-6">
+            <h3 class="card-title">Add new Artist</h3>
+          </div>
+        </div>
+      </div>
+      <div class="card-body" id="">
+        <div class="card-body table-responsive" id="">
+          <form action="/releases/artists/add/" method="post">
+            <div class="row">
+              <div class="col-md-6">
+                <h4>Artist Name:</h4>
+                <div class="input-group mb-3">
+                  <input type="text" placeholder="artist name" class="form-control" name="artist_name_input" required>
+                </div>
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-md-6">
+                <h4>First Name:</h4>
+                <div class="input-group mb-3">
+                  <input type="text" placeholder="first name (optional)" class="form-control" name="first_name_input">
+                </div>
+              </div>
+              <div class="col-md-6">
+                <h4>Last Name:</h4>
+                <div class="input-group mb-3">
+                  <input type="text" placeholder="last name (optional)" class="form-control" name="last_name_input">
+                </div>
+              </div>
+            </div>
+            <div class="row">
+              <h4>Channels</h4>
+              <hr>
+            </div>
+            <div class="row">
+              <div class="col-md-6">
+                <div class="mb-3">
+                  <label for="name_id">Apple Music ID:</label>
+                  <img src="/static/img/apple-logo.png" height="25" width="25">
+                  <div class="input-group">
+                    <input type="text" pattern="\d*" placeholder="apple music id (numeric)" class="form-control"
+                      name="apple_music_input" id="apple_music_input">
+                  </div>
+                  <small style="font-size: 10px;">Indicate this artist Apple Music ID.
+                    <a onclick="openAppleMusicModal()" style="color:rgb(0, 122, 229)">See where to find it</a></small>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="mb-3">
+                  <label for="name_id">Spotify ID:</label>
+                  <img src="/static/img/spotify-logo.png" height="25" width="25">
+                  <div class="input-group">
+                    <input pattern="[a-zA-Z0-9]*" type="text" placeholder="spotify id (alpha-numeric)"
+                      class="form-control" name="spotify_id_input" id="spotify_id_input">
+                  </div>
+                  <small style="font-size: 10px;">Indicate this artist Spotify ID or leave it empty to create a new
+                    profile. <a onclick="openSpotifyModal()" style="color:rgb(0, 122, 229)">See where to find
+                      it</a></small>
+                </div>
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-md-6">
+                <div class="mb-3">
+                  <label for="name_id">Youtube Username:</label>
+                  <img src="/static/img/youtube-logo.png" height="25" width="25">
+                  <div class="input-group">
+                    <input type="text" placeholder="youtube username" class="form-control" name="youtube_username_input">
+                  </div>
+                  <small style="font-size: 10px;">Indicate this artist Youtube username.</small>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="mb-3">
+                  <label for="audiomack_id_input">Audiomack Artist ID:</label>
+                  <div class="input-group">
+                    <input type="text" placeholder="Audiomack artist ID (numeric)" class="form-control" name="audiomack_id_input" id="audiomack_id_input" pattern="\d*">
+                  </div>
+                  <small style="font-size: 10px;">Used for DDEX delivery to Audiomack so releases map to the correct artist profile. Find it in the artist's Audiomack Creator Dashboard.</small>
+                </div>
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-md-6">
+                <div class="mb-3">
+                  <label for="name_id">Soundcloud Page:</label>
+                  <img src="/static/img/soundcloud-logo.png" height="25" width="25">
+                  <div class="input-group">
+                    <input type="text" placeholder="soundcloud" class="form-control" name="soundcloud_page_input">
+                  </div>
+                  <small style="font-size: 10px;">Indicate this artist Soundcloud page link.</small>
+                </div>
+              </div>
+            </div>
+            <div class="row">
+              <div class="row">
+                <h4>Social Media</h4>
+                <hr>
+              </div>
+              <div class="col-md-6">
+                <div class="mb-3">
+                  <label for="name_id">Facebook Page:</label>
+                  <img src="/static/img/facebook-logo.png" height="25" width="25">
+                  <div class="input-group">
+                    <input type="text" placeholder="facebook" class="form-control" name="facebook_page_input">
+                  </div>
+                  <small style="font-size: 10px;">Indicate this artist Facebook page link.</small>
+                </div>
+                <div class="mb-3">
+                  <label for="name_id">Website Page:</label>
+                  <img src="/static/img/website-logo.png" height="25" width="25">
+                  <div class="input-group">
+                    <input type="text" placeholder="website" class="form-control" name="website_page_input">
+                  </div>
+                  <small style="font-size: 10px;">Indicate this artist website page link.</small>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="mb-3">
+                  <label for="name_id">X Username (former Twitter):</label>
+                  <img src="/static/img/x-logo.png" height="25" width="25">
+                  <div class="input-group">
+                    <input type="text" placeholder="X username" class="form-control" name="x_username_input">
+                  </div>
+                  <small style="font-size: 10px;">Indicate this artist X username.</small>
+                </div>
+              </div>
+            </div>
+            <div class="row">
+              <h4>Biography</h4>
+              <div class="mb-3">
+                <div class="input-group">
+                  <textarea class="form-control" name="biography_input" placeholder="biography"></textarea>
+                </div>
+                <small style="font-size: 10px;">Write a short biography or artist description.</small>
+              </div>
+            </div>
+            <button class="btn btn-secondary" type="submit">Create Artist</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="row">
+  <div class="col-12 mb-4">
+    <div class="card border-0 shadow components-section">
+      <div class="card-header card-header-primary">
+        <div class="row">
+          <div class="col-lg-6 col-md-6">
+            <h3 class="card-title">Artists</h3>
+          </div>
+        </div>
+      </div>
+      <div class="card-body" id="artists_table_id">
+        <div class="card-body table-responsive" id="table_artists_id">
+          <!-- Data will be inserted here dynamically -->
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- Apple Music Modal -->
+<div class="modal fade" id="apple-music-modal" tabindex="-1" role="dialog" aria-labelledby="modal-default"
+  aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h1 class="h6 modal-title">Where to find the Apple Music ID</h1>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body p-3">
+        <p>The Apple Music ID is a unique string of characters that identifies an artist profile on Apple Music.</p>
+        <p>
+          <b>1.</b> Go to the <b>artist page</b> on Apple Music and click on the <b>3 dots below the profile
+            picture.</b>
+        </p>
+        <img src="/static/img/apple-music-help-one.svg">
+        <p class="mt-3">
+          <b>2.</b> Select Share from the menu and click <b>Copy link.</b>
+        </p>
+        <img src="/static/img/apple-music-help-two.svg">
+        <p class="mt-3">
+          <b>3.</b> The <b>Apple Music ID</b> is the string of <b>numbers located at the end</b>, as highlighted below.
+        </p>
+        <img src="/static/img/apple-music-help-three.svg">
+      </div>
+    </div>
+  </div>
+</div>
+<!-- Spotify Modal -->
+<div class="modal fade" id="spotify-modal" tabindex="-1" role="dialog" aria-labelledby="modal-default"
+  aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h1 class="h6 modal-title">Where to find the Spotify ID</h1>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body p-3">
+        <p>The Spotify ID is a unique string of characters that identifies an artist profile on Spotify.</p>
+        <p>
+          <b>1.</b> Go to the <b>artist page</b> on Spotify and click on the <b>3 dots below the artist name.</b>
+        </p>
+        <img src="/static/img/spotify-help-one.svg">
+        <p class="mt-3">
+          <b>2.</b> Select <b>Share</b> from the menu and click <b>Copy link to artist.</b>
+        </p>
+        <img src="/static/img/spotify-help-two.svg">
+        <p class="mt-3">
+          <b>3.</b> The <b>Spotify ID</b> is the string of characters located between <b>/artist/</b> and <b>?</b>, as
+          highlighted below.
+        </p>
+        <img src="/static/img/spotify-help-three.svg">
+      </div>
+    </div>
+  </div>
+</div>
+<!-- Populate artists table -->
+<script>
+  $(document).ready(function () {
+    document.getElementById('apple_music_input').addEventListener('input', function (e) {
+      this.value = this.value.replace(/\D/g, '');
+    });
+    document.getElementById('spotify_id_input').addEventListener('input', function (e) {
+      this.value = this.value.replace(/[^a-zA-Z0-9]/g, '');
+    });
+
+    set_loading('#artists_table_id');
+    $.ajax({
+      type: "GET",
+      url: "/releases/artists/list",
+    }).then(function (response) {
+      set_loading('#artists_table_id');
+      $("#table_artists_id").html(response.table);
+      var dataTableArtists = document.getElementById('data_table_artists');
+      if (dataTableArtists) {
+        const dataTable = new simpleDatatables.DataTable(dataTableArtists);
+      }
+    });
+  });
+</script>
+
+{% endblock content %}
+{% endautoescape %}

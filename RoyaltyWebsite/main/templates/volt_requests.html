@@ -1,0 +1,246 @@
+{% extends 'volt_base.html' %}
+{% load static %}
+{% block nav_content %}
+{% if requesting_user_role == 'admin' %}
+  <div class="d-flex align-items-center">
+    <button class="btn btn-gray-800 d-inline-flex align-items-center me-2" onclick="openAnnouncementModal()">
+      <span class="material-symbols-outlined">
+        campaign
+      </span>
+      &nbsp New Announcement
+    </button>
+  </div>
+{% endif %}
+{% endblock nav_content %}
+{% block content %}
+<div class="modal fade" id="editRequestModal" tabindex="-1" role="dialog" aria-labelledby="modal-default"
+  aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="h3 modal-title">Review Request</h3>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <label for="modal_title_id">Request Title: </label>
+        <div class="input-group">
+          <input type="text" id="modal_title_id" name="modal_title" class="form-control" disabled>
+        </div>
+        <br>
+        <label for="modal_description_id">Request Description: </label>
+        <div class="input-group">
+          <textarea class="form-control" id="modal_description_id" name="modal_description" rows="4" disabled></textarea>
+        </div>
+        <br>
+        <label for="modal_description_id">Status: </label>
+        <select id="modal_status_id" class="w-100 form-control" name="role">
+          <option value="PENDING">PENDING</option>
+          <option value="IN REVIEW">IN REVIEW</option>
+          <option value="CLOSED">CLOSED</option>
+        </select>
+        <br>
+        <label for="modal_feedback_id">Feedback: </label>
+        <input type="text" id="modal_feedback_id" name="modal_feedback" class="form-control">
+        <input type="text" id="modal_review_id" value="" hidden>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary"
+          onclick="onSubmitReview()">Submit Review</button>
+        <button type="button" class="btn btn-link text-gray ms-auto" data-bs-dismiss="modal">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="modal fade" id="announcementModal" tabindex="-1" role="dialog" aria-labelledby="modal-default"
+  aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="h3 modal-title">New Announcement</h3>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <label for="modal_announcement_id">Announcement: </label>
+        <textarea type="text" id="modal_announcement_id" name="modal_announcement" class="form-control"></textarea>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary"
+          onclick="onSubmitAnnouncement()">Publish</button>
+        <button type="button" class="btn btn-link text-gray ms-auto" data-bs-dismiss="modal">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="row">
+  <div class="col-12 mb-4">
+    {% if requesting_user_role != 'admin' %}
+    <div class="card border-0 shadow components-section">
+      <div class="card-header card-header-primary">
+        <h3 class="card-title">New Request</h3>
+      </div>
+      <div class="card-body table-responsive">
+        <form enctype="multipart/form-data" id="form_1">
+          {%csrf_token%}
+          <div class="mb-3">
+            <label for="title_id">Title: <span style="color: red;">*</span></label>
+            <div class="input-group">
+              <input type="text" placeholder="title" class="form-control" id="title_id" name="title" required>
+            </div>
+          </div>
+          <div class="mb-3">
+            <label for="description_id">Description: <span style="color: red;">*</span></label>
+            <div class="input-group">
+              <textarea class="form-control" placeholder="description" id="description_id" name="description" rows="4"
+                value="" required></textarea>
+            </div>
+          </div>
+          <div class="col-md-2">
+            <button type="submit" class="btn btn-secondary">Open Request</button>
+          </div>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+
+    <br>
+
+    <div class="card border-0 shadow components-section">
+      <div class="card-header card-header-primary">
+        {% if requesting_user_role != 'admin' %}
+        <h3 class="card-title">My Requests</h3>
+        {% else %}
+        <h3 class="card-title">Pending Requests</h3>
+        {% endif %}
+      </div>
+      <div class="card-body">
+        <div class="card-body table-responsive" id="table_load">
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+
+</div>
+
+<script>
+  $(document).ready(function () {
+    $('#form_1').on('submit', function (event) {
+      event.preventDefault();
+      var formData = new FormData($('#form_1')[0]);
+      $.ajax({
+        type: 'POST',
+        url: '/requests/',
+        data: formData,
+        processData: false,
+        contentType: false,
+        success: function (response) {
+          if (response.requests_error_message) {
+            sendSweetAlert('error', 'Cannot open ticket', "There was an error while opening this ticket. Please contact admin.");
+          }
+          if (response.requests_success_message) {
+            sendSweetAlert('success', 'Ticket opened', "You have succesfully opened a new ticket!");
+            get_requests();
+          }
+        }
+      })
+    });
+  });
+  function get_requests() {
+    set_loading('#table_load');
+    $.ajax({
+      type: "GET",
+      url: "/user/requests/",
+    }).then(function (response) {
+      set_loading('#table_load');
+      $("#table_load").html(response.table);
+      var dataTableTracks = document.getElementById('data_table');
+      if (dataTableTracks) {
+        const dataTable = new simpleDatatables.DataTable(dataTableTracks);
+      }
+    });
+  }
+  function delete_request(request_id) {
+    $.ajax({
+      type: "GET",
+      url: "/user/requests/delete/" + request_id,
+      success: function (response) {
+        if (response.requests_error_message) {
+          alert("There was an error while deleting your request. Please contact admin.");
+        }
+        if (response.requests_success_message) {
+          alert("You have succesfully deleted your request!");
+          get_requests();
+        }
+      }
+    })
+  }
+  function edit_request(request_id) {
+    let children = document.getElementById("row_" + request_id).children;
+    $("#modal_title_id").val(children.item(1).textContent);
+    $("#modal_description_id").val(children.item(2).textContent);
+    $("#modal_review_id").val(request_id);
+    $('#editRequestModal').modal('show');
+  }
+  function onSubmitReview() {
+    request_id = $("#modal_review_id").val();
+    updated_status = $("#modal_status_id").val();
+    updated_feedback = $("#modal_feedback_id").val();
+
+    var formData = new FormData();
+    formData.append('request_id', request_id);
+    formData.append('status', updated_status);
+    formData.append('feedback', updated_feedback);
+    $.ajax({
+        type: 'POST',
+        url: '/request/feedback/',
+        contentType: "application/text; charset=utf-8",
+        dataType: "json",
+        data: formData,
+        processData: false,
+        contentType: false,
+        success: function (response) {
+          $('#editRequestModal').modal('hide');
+          if (response.requests_success_message) {
+            alert("Request succesfully reviewed!");
+            get_requests();
+          }
+          if (response.requests_error_message) {
+            alert("Request review failed!");
+          }
+        }
+      })
+  }
+  function openAnnouncementModal() {
+    $('#announcementModal').modal('show');
+  }
+  function onSubmitAnnouncement() {
+    new_announcement = $("#modal_announcement_id").val();
+    if (new_announcement != "") {
+      var formData = new FormData();
+      formData.append('new_announcement', new_announcement);
+      $.ajax({
+          type: 'POST',
+          url: '/announcements/add/',
+          contentType: "application/text; charset=utf-8",
+          dataType: "json",
+          data: formData,
+          processData: false,
+          contentType: false,
+          success: function (response) {
+            $('#announcementModal').modal('hide');
+            if (response.announcement_success_message) {
+              alert("New announcement succesfully published!");
+            }
+            if (response.announcement_error_message) {
+              alert("Announcement publish failed! Please try again.");
+            }
+          }
+        })
+    }
+  }
+  get_requests();
+</script>
+
+
+{% endblock content %}

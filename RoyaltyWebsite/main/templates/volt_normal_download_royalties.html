@@ -1,0 +1,218 @@
+{% extends 'volt_base.html' %} {% load static %} {% block nav_content %}
+{%endblock nav_content%} {% block content %}
+<div id="error">
+  <div class="row">
+    <div class="col-12 mb-4">
+      <div class="card border-0 shadow components-section">
+        <div class="card-header card-header-primary">
+            <h3 class="card-title">Download Royalties Report</h3>
+        </div>
+        <div class="card-body">
+          <div class="row mb-4">
+            <div class="col-lg-4 col-sm-6">
+              <div class="mb-3">
+                <label for="from_date_filter">From</label>
+                <div class="input-group col-lg-6">
+                  <span class="input-group-text">
+                    <svg
+                      class="icon icon-xs text-gray-600"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        fill-rule="evenodd"
+                        d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z"
+                        clip-rule="evenodd"
+                      ></path>
+                    </svg>
+                  </span>
+                  <input
+                    data-datepicker=""
+                    class="form-control"
+                    id="date_start"
+                    type="text"
+                    placeholder="dd/mm/yyyy"
+                    required
+                  />
+                </div>
+              </div>
+            </div>
+            <div class="col-lg-4 col-sm-6">
+              <div class="mb-3">
+                <label for="to_date_filter">To</label>
+                <div class="input-group col-lg-6">
+                  <span class="input-group-text">
+                    <svg
+                      class="icon icon-xs text-gray-600"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        fill-rule="evenodd"
+                        d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z"
+                        clip-rule="evenodd"
+                      ></path>
+                    </svg>
+                  </span>
+                  <input
+                    data-datepicker=""
+                    class="form-control"
+                    id="date_end"
+                    type="text"
+                    placeholder="dd/mm/yyyy"
+                    required
+                  />
+                </div>
+              </div>
+            </div>
+            <div class="col-lg-4 col-sm-6">
+              <div class="mb-3">
+                <br />
+                <div class="col-lg-6">
+                  <button
+                    type="button"
+                    onclick="download_royalties()"
+                    class="btn btn-secondary"
+                  >
+                    Download
+                    <svg class="icon icon-xxs ms-2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd"
+                          d="M2 9.5A3.5 3.5 0 005.5 13H9v2.586l-1.293-1.293a1 1 0 00-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 15.586V13h2.5a4.5 4.5 0 10-.616-8.958 4.002 4.002 0 10-7.753 1.977A3.5 3.5 0 002 9.5zm9 3.5H9V8a1 1 0 012 0v5z"
+                          clip-rule="evenodd" />
+                      </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="row col-12">
+            <div class="col-4">
+                <div class="mb-3">
+                    <label for="name_id">Filters: </label>
+                    <div class="input-group">
+                        <fieldset>
+                            <div class="form-check">
+                                <input class="form-check-input" label="Label" type="radio" id="label" name="field_filter" value="label" checked="True">
+                                <label class="form-check-label" for="label">
+                                  Label
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" label="Display Artist" type="radio" id="display_artist" name="field_filter" value="display_artist">
+                                <label class="form-check-label" for="display_artist">
+                                  Display Artist
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" label="Release" type="radio" id="release" name="field_filter" value="release">
+                                <label class="form-check-label" for="release">
+                                  Release
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" label="Channel" type="radio" id="channel" name="field_filter" value="channel">
+                                <label class="form-check-label" for="channel">
+                                  Channel
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" label="Country" type="radio" id="country" name="field_filter" value="country">
+                                <label class="form-check-label" for="country">
+                                  Country
+                                </label>
+                            </div>
+                        </fieldset>
+                    </div>
+                  </div>
+            </div>
+            <div class="col-4">
+                <div class="mb-3">
+                    <label for="name_id">Fields: </label>
+                    <div class="input-group">
+                        <fieldset>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" label="Single" type="radio" id="single" name="field_check" value="single" checked="True">
+                                <label class="form-check-label" for="single">
+                                  Single
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" label="Multiple" type="radio" id="multiple" name="field_check" value="multiple">
+                                <label class="form-check-label" for="multiple">
+                                  Multiple
+                                </label>
+                            </div>
+                        </fieldset>
+                    </div>
+                  </div>
+            </div>
+            <div class="col-4"></div>
+          </div>
+          
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+    function monthDiff(d1, d2) {
+            var months;
+            months = (d2.getFullYear() - d1.getFullYear()) * 12;
+            months -= d1.getMonth();
+            months += d2.getMonth();
+            return months <= 0 ? 0 : months;
+        }
+    function createDate(dt) {
+            return String((dt.getMonth()+1)) + "/" + String(dt.getFullYear())
+        }
+</script>
+<script>
+    function download_royalties() {
+        var start_filter_date = document.getElementById("date_start").value;
+        var end_filter_date = document.getElementById("date_end").value;
+    
+        if (start_filter_date !== ""){
+            var parts = start_filter_date.split('/');
+            start_filter_date = new Date(parts[2] + '-' + parts[0] + '-01')
+        }
+        if (end_filter_date !== ""){
+            var parts = end_filter_date.split('/');
+            end_filter_date = new Date(parts[2] + '-' + parts[0] + '-28')
+        }
+        if (start_filter_date !== "" && end_filter_date !== ""){
+            var diff = monthDiff(start_filter_date,end_filter_date)
+            var current_date = new Date();
+            var starting_diff = monthDiff(start_filter_date,current_date) + 1;
+            diff = diff + 1;
+            if (diff > 3){
+              sendSweetAlert('warning', '', "Date needs to be in range of 3 months");
+            }
+            else if(starting_diff > 6) {
+              sendSweetAlert('warning', '', "You can fetch data no more than 6 months back!");
+            }
+            else{
+                var selected_field_category = document.querySelector('input[name="field_check"]:checked').value;
+                var selected_field = document.querySelector('input[name="field_filter"]:checked').value;
+                var starting_date = createDate( start_filter_date ).replace("/", "-");
+                var ending_date = createDate(end_filter_date).replace("/", "-");
+                $.ajax({
+                    type: "GET",
+                    url: "/get_royalties_data/" + selected_field_category + "/" + selected_field + "/" + starting_date + "/" + ending_date,
+                }).then(function (response) {
+                    if (response.due_error){
+                    }else{
+                        sendSweetAlert('info', '', response.message);
+                    }
+                });
+            }
+        }
+        else{
+            sendSweetAlert('warning', '', "Please select date range (not greater than 3 months)");
+
+        }
+    }
+</script>
+{% endblock content %}

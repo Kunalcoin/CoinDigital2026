@@ -1,0 +1,122 @@
+{% extends 'volt_base.html' %}
+{% load static %}
+{% block nav_content %}
+
+{% endblock nav_content %}
+{% block content %}
+
+<div class="row">
+    <div class="col-12 mb-4">
+        <button class="btn btn-primary col-lg-1 col-md-2 col-sm-3 col-xs-4 mb-2" id="analytics_tracks">
+            <span class="material-symbols-outlined">
+                album
+            </span>
+            <br>
+            Top <br> Tracks
+        </button>
+        <button class="btn btn-secondary col-lg-1 col-md-2 col-sm-3 col-xs-4 mb-2" id="analytics_releases">
+            <span class="material-symbols-outlined">
+                music_note
+            </span>
+            <br>
+            Top <br> Releases
+        </button>
+        <button class="btn btn-secondary col-lg-1 col-md-2 col-sm-3 col-xs-4 mb-2" id="analytics_artists">
+            <span class="material-symbols-outlined">
+                face
+            </span>
+            <br>
+            Top <br> Artists
+        </button>
+        <button class="btn btn-secondary col-lg-1 col-md-2 col-sm-3 col-xs-4 mb-2" id="analytics_labels">
+            <span class="material-symbols-outlined">
+                group
+            </span>
+            <br>
+            Top <br> Labels
+        </button>
+        <button class="btn btn-secondary col-lg-1 col-md-2 col-sm-3 col-xs-4 mb-2" id="analytics_stores">
+            <span class="material-symbols-outlined">
+                library_music
+            </span>
+            <br>
+            Top <br> Stores
+        </button>
+        <button class="btn btn-secondary col-lg-1 col-md-2 col-sm-3 col-xs-4 mb-2" id="analytics_languages">
+            <span class="material-symbols-outlined">
+                language
+            </span>
+            <br>
+            Top <br> Languages
+        </button>
+
+        <br><br>
+
+        <div class="card border-0 shadow components-section bg-warning">
+            <div class="card-header card-header-primary">
+                <h3 id="card_title" class="card-title"></h3>
+                <small id="duration_field"></small>
+            </div>
+            <div class="card-body">
+                <div class="card-body table-responsive" id="table_load">
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script>
+    var requestStatus = 0;
+    var durationHtml = "<b>Duration:</b> Last <b>90</b> Days"
+    $(".btn").on("click", function () {
+        if (requestStatus == 0) {
+            // Set coloring
+            $(".btn").removeClass("btn-primary");
+            $(".btn").addClass("btn-secondary");
+            $(this).removeClass("btn-secondary");
+            $(this).addClass("btn-primary");
+
+            // Update data table
+            let id = $(this).attr("id");
+            if (id == "analytics_tracks") {
+                updateDataTable("Top Tracks", "/analytics/tracks/", durationHtml);
+            } else if (id == "analytics_releases") {
+                updateDataTable("Top Releases", "/analytics/releases/", durationHtml);
+            } else if (id == "analytics_artists") {
+                updateDataTable("Top Artists", "/analytics/artists/", durationHtml);
+            } else if (id == "analytics_labels") {
+                updateDataTable("Top Labels", "/analytics/labels/", durationHtml);
+            } else if (id == "analytics_stores") {
+                updateDataTable("Top Stores", "/analytics/stores/", durationHtml);
+            } else if (id == "analytics_languages") {
+                updateDataTable("Top Languages", "/analytics/languages/", durationHtml);
+            } else { }
+        }
+    });
+
+    function updateDataTable(cardTitle, url, durationLocalHtml) {
+        requestStatus = 1;
+        $("#card_title").text(cardTitle);
+        $("#duration_field").html(durationLocalHtml);
+
+        set_loading('#table_load');
+        $.ajax({
+            type: "GET",
+            url: url,
+        }).then(function (response) {
+            set_loading('#table_load');
+            $("#table_load").html(response.table);
+            var dataTableTracks = document.getElementById('data_table');
+            if (dataTableTracks) {
+                const dataTable = new simpleDatatables.DataTable(dataTableTracks);
+            }
+            requestStatus = 0;
+        });
+    }
+
+    updateDataTable("Top Tracks", "/analytics/tracks/", durationHtml);
+</script>
+
+
+{% endblock content %}

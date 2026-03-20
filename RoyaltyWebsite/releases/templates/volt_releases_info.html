@@ -1,0 +1,409 @@
+{% extends 'volt_releases_base.html' %}
+
+{% block rl_content_page %}
+<script>
+    $(document).ready(function () {
+        $(window).keydown(function (event) {
+            if (event.keyCode  ==  13) {
+                event.preventDefault();
+                return false;
+            }
+        });
+    });
+</script>
+<script>
+    var current_selected_artist_roles = [];
+    function wouldPrimaryFeaturingConflict(artist_id, artist_type, container_id, input_prefix) {
+        var primaryRoles = ['Primary Artist'];
+        var featuringRoles = ['Featuring', 'Featured Artist'];
+        if (primaryRoles.indexOf(artist_type) === -1 && featuringRoles.indexOf(artist_type) === -1) return false;
+        var container = document.getElementById(container_id);
+        if (!container) return false;
+        var inputs = container.querySelectorAll('input[name^="' + input_prefix + '"]');
+        for (var i = 0; i < inputs.length; i++) {
+            var m = inputs[i].value.match(/\('\s*([^']+)'\s*,\s*'?([^')]+)'?\s*\)/);
+            if (!m) continue;
+            var existing_role = m[1];
+            var existing_id = String(m[2]).replace(/'/g, '').trim();
+            if (existing_id === String(artist_id)) {
+                if (primaryRoles.indexOf(artist_type) !== -1 && featuringRoles.indexOf(existing_role) !== -1) return true;
+                if (featuringRoles.indexOf(artist_type) !== -1 && primaryRoles.indexOf(existing_role) !== -1) return true;
+            }
+        }
+        return false;
+    }
+    function remove_artist(type, name) {
+        let id = type + name
+        var div_to_remove = document.getElementById(id);
+        div_to_remove.parentNode.removeChild(div_to_remove);
+        current_selected_artist_roles.splice(current_selected_artist_roles.indexOf(type), 1);
+    }
+    function add_new_artist() {
+        // Check if new artist field is filled in
+        new_artist_field_value = document.getElementById("new_artist_input_id").value;
+        artist_type = document.getElementById('artist_type').value;
+        if (new_artist_field_value.trim() != "" && new_artist_field_value != undefined) {
+            createNewDbArtist(new_artist_field_value);
+        } else {
+            // Using previously created artist
+            artists_select = document.getElementById('artists');
+
+            artist_id = artists_select.value;
+            artist_name = artists_select.options[artists_select.selectedIndex].text;
+
+            if (wouldPrimaryFeaturingConflict(artist_id, artist_type, 'artists_listings', 'artist_release_')) {
+                sendSweetAlert('error', 'Invalid Artist Role', 'An artist cannot be both Primary Artist and Featuring on the same release. Please remove the existing entry first.');
+                return;
+            }
+
+            let new_component = `<li id="${artist_type}${artist_name}">
+                                    <b>${artist_type}:</b>&nbsp;<label>${artist_name}</label> 
+                                    &nbsp;<a href="/releases/artists/update/${artist_id}/" target="_blank"><span class="material-symbols-outlined" style="cursor:pointer;font-size: 1.1rem">edit</span></a>
+                                    &nbsp;<span class="material-symbols-outlined" style="cursor:pointer;vertical-align: sub;font-size: 1.1rem " onclick="remove_artist('${artist_type}','${artist_name}')">close</span>
+                                    <input name="artist_release_${artist_type}${artist_id}" value="('${artist_type}','${artist_id}')" hidden></input>
+                                </li>`
+            let previous_html = document.getElementById('artists_listings').innerHTML
+            document.getElementById('artists_listings').innerHTML = previous_html + new_component
+            current_selected_artist_roles.push(artist_type);
+        }
+    }
+    function createNewDbArtist(artist_name) {
+        artist_type = document.getElementById('artist_type').value;
+        $.ajax({
+            type: 'GET',
+            url: '/releases/add_new_artist/' + encodeURIComponent(artist_name) + '/',
+            success: function(response) {
+                if (response.success) {
+                    artist_id = response.id;
+                    artist_type = document.getElementById('artist_type').value;
+                    if (wouldPrimaryFeaturingConflict(artist_id, artist_type, 'artists_listings', 'artist_release_')) {
+                        sendSweetAlert('error', 'Invalid Artist Role', 'An artist cannot be both Primary Artist and Featuring on the same release. Please remove the existing entry first.');
+                        return;
+                    }
+                    // Add new artist component
+                    let new_component = `<li id="${artist_type}${artist_name}">
+                                    <b>${artist_type}:</b>&nbsp;<label>${artist_name}</label> 
+                                    &nbsp;<a href="/releases/artists/update/${artist_id}/" target="_blank"><span class="material-symbols-outlined" style="cursor:pointer;font-size: 1.1rem">edit</span></a>
+                                    &nbsp;<span class="material-symbols-outlined" style="cursor:pointer;vertical-align: sub;font-size: 1.1rem " onclick="remove_artist('${artist_type}','${artist_name}')">close</span>
+                                    <input name="artist_release_${artist_type}${artist_id}" value="('${artist_type}','${artist_id}')" hidden></input>
+                                </li>`
+                    let previous_html = document.getElementById('artists_listings').innerHTML
+                    document.getElementById('artists_listings').innerHTML = previous_html + new_component
+                    current_selected_artist_roles.push(artist_type);
+                    // Add new artist to select box
+                    var artistsSelectBox = document.getElementById('artists');
+                    var newArtistOption = document.createElement('option');
+                    newArtistOption.value = artist_id;
+                    newArtistOption.textContent = artist_name;
+                    artistsSelectBox.appendChild(newArtistOption);
+                    // Show modal if roles are Primary Artist or Featuring
+                    if (artist_type == 'Primary Artist' || artist_type == 'Featuring') {
+                        // Update onclick handler
+                        var provideDetailsButton = document.getElementById("provideArtistDetailsButton")
+                        provideDetailsButton.onclick = function() {
+                            window.location.href = '/releases/artists/update/' + artist_id + "/";
+                        }
+                        // Show Add Artist Details modal
+                        $('#addArtistDetailsModal').modal('show');
+                    }
+                } else {
+                    sendSweetAlert('error', 'Artist Creation Failed', response.message);
+                }
+            },
+            error: function(response) {
+                sendSweetAlert('error', 'Artist Creation Failed', 'Please contact administrators!');
+            }
+        });
+    }
+    var loadFile = function (event) {
+        const allowedExtensions = ['jpg', 'jpeg', 'png', 'tiff']; // Add the allowed extensions here
+        const selectedFile = event.target.files[0];
+        if (!selectedFile) return;
+        processCoverArtFile(selectedFile);
+    };
+    
+    function processCoverArtFile(selectedFile) {
+        const allowedExtensions = ['jpg', 'jpeg', 'png', 'tiff'];
+        const fileExtension = selectedFile.name.split('.').pop().toLowerCase();
+    
+        if (allowedExtensions.includes(fileExtension)) {
+            let img = new Image();
+            img.src = window.URL.createObjectURL(selectedFile);
+            img.onload = () => {
+                if (
+                    5000 >= img.width &&
+                    img.width >= 3000 &&
+                    5000 >= img.height &&
+                    img.height >= 3000 &&
+                    img.width === img.height
+                ) {
+                    var image = document.getElementById('output_cover_art');
+                    image.src = URL.createObjectURL(selectedFile);
+                    document.getElementById('cover_art_preview').style.display = 'block';
+                    document.getElementById('cover_art_upload_area').style.display = 'none';
+    
+                    var uploader = new FileUpload(document.querySelector('#cover_art_file_name'));
+                    uploader.upload("{{ primary_uuid }}");
+                } else {
+                    sendSweetAlert('error', 'Image Requirements',`Sorry, this image doesn't meet the size requirements. It should be 3000 - 5000 pixels and a perfect square.`);
+                    document.getElementById('cover_art_file_name').value = '';
+                }
+            };
+        } else {
+            sendSweetAlert('error', 'Image Requirements','Only JPG, JPEG, PNG, and TIFF files are allowed.');
+            document.getElementById('cover_art_file_name').value = '';
+        }
+    }
+    
+    // Drag and drop functionality for cover art
+    $(document).ready(function() {
+        const dropzone = document.getElementById('cover_art_dropzone');
+        const fileInput = document.getElementById('cover_art_file_name');
+        
+        // Click to browse
+        dropzone.addEventListener('click', () => fileInput.click());
+        
+        // Drag and drop
+        dropzone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropzone.style.borderColor = '#007bff';
+            dropzone.style.backgroundColor = '#e7f3ff';
+        });
+        
+        dropzone.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            dropzone.style.borderColor = '#ccc';
+            dropzone.style.backgroundColor = '#f8f9fa';
+        });
+        
+        dropzone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropzone.style.borderColor = '#ccc';
+            dropzone.style.backgroundColor = '#f8f9fa';
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                fileInput.files = files;
+                processCoverArtFile(files[0]);
+            }
+        });
+    });
+</script>
+<div class="modal fade" id="addArtistDetailsModal" tabindex="-1" role="dialog" aria-labelledby="modal-default"
+  aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="h3 modal-title">Provide Artist Details</h3>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p>You've succesfully added an artist.</p><br>
+        <p>To make sure your music is distributed accurately on channels like Spotify and Apple Music, please <b>let us know if you already have their Artist IDs</b>.</p><br>
+        <p>You can do this by completing the Artist details page we've created.</p>
+    </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="provideArtistDetailsButton">Provide Artist Details</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="row">
+    <div class="col-12 mb-4">
+        <div class="card border-0 shadow components-section">
+            <div class="card-header card-header-primary">
+                <h3 class="card-title">Release Info</h3>
+            </div>
+            <div class="card-body" id="due_reports">
+                <form id="releases_form">
+                    <div class="row" style="text-align: left;">
+                        <!-- Title Name - full width -->
+                        <div class="col-lg-12 mb-3">
+                            <h6>Title Name <span class="text-danger">*</span></h6>
+                            <input type="text" placeholder="Title Name" value="{{ release_title }}" class="form-control" id="release_title_input" name="release_title">
+                        </div>
+
+                        <!-- Two-column layout: Left | Right -->
+                        <div class="col-lg-6 mb-4">
+                            <!-- LEFT COLUMN -->
+                            <h6 class="mb-3">Cover Art <span class="text-danger">*</span></h6>
+                            <div id="cover_art_dropzone" style="border: 2px dashed #ccc; padding: 24px; text-align: center; cursor: pointer; background-color: #f8f9fa; border-radius: 8px; min-height: 200px; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                                <div id="cover_art_preview" style="display: {% if rl_data.cover_art_path %}block{% else %}none{% endif %}; margin-bottom: 12px;">
+                                    <img id="output_cover_art" src="{{ rl_data.cover_art_path }}" style="max-width: 280px; max-height: 280px; border-radius: 4px;" />
+                                </div>
+                                <div id="cover_art_upload_area" style="display: {% if rl_data.cover_art_path %}none{% else %}block{% endif %};">
+                                    <svg style="width: 48px; height: 48px; margin-bottom: 8px; opacity: 0.5;" fill="currentColor" viewBox="0 0 20 20">
+                                        <path d="M5.5 13a3.5 3.5 0 01-.369-6.98 4 4 0 117.753-1.977A4.5 4.5 0 1113.5 13H11V9.413l1.293 1.293a1 1 0 001.414-1.414l-3-3a1 1 0 00-1.414 0l-3 3a1 1 0 001.414 1.414L9 9.414V13H5.5z"></path>
+                                        <path d="M9 13h2v5a1 1 0 11-2 0v-5z"></path>
+                                    </svg>
+                                    <p style="margin: 0; color: #6c757d; font-size: 0.9rem;">Drag and drop or click to browse</p>
+                                </div>
+                                <input type="file" accept="image/jpg, image/jpeg , image/tiff, image/png" id='cover_art_file_name' class="form-control" style="display: none;" onchange="loadFile(event)">
+                                <div id="uploaded_files"></div>
+                            </div>
+                            <p class="text-muted small mt-2 mb-1"><strong>Cover art requirements:</strong> Size 3000–5000 px (square). JPG, TIFF or PNG (max 36 MB).</p>
+
+                            <h6 class="mt-4 mb-2">Remix or Version <span>(Optional)</span></h6>
+                            <input type="text" placeholder="Remix or Version" value="{{ rl_data.remix_version }}" class="form-control mb-3" id="remix_version" name="remix_version">
+
+                            <h6 class="mb-2">Release created by</h6>
+                            <p class="text-muted small">{{ release_created_by_email|default:"" }}</p>
+
+                            <h6 class="mt-4 mb-2">Artists <span class="text-danger">*</span></h6>
+                            <div class="row mb-2">
+                                <div class="col-4 pe-1">
+                                    <select id="artist_type" name="artist_type" class="form-select form-select-sm"></select>
+                                </div>
+                                <div class="col-5 px-1">
+                                    <select id="artists" name="artists" class="form-select form-select-sm">
+                                        {% for r in artists %}
+                                        <option value="{{ r.id }}">{{ r.name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-3 ps-1">
+                                    <input id="new_artist_input_id" class="form-control form-control-sm" placeholder="New Artist"/>
+                                </div>
+                            </div>
+                            <button type="button" class="btn btn-primary btn-sm mb-2" id="add_artist" onclick="add_new_artist()">+ Add Artist</button>
+                            <ul id="artists_listings" class="list-unstyled small"></ul>
+                        </div>
+
+                        <div class="col-lg-6 mb-4">
+                            <!-- RIGHT COLUMN -->
+                            <h6 class="mb-2">Labels <span class="text-danger">*</span></h6>
+                            <div class="row mb-3 g-2">
+                                <div class="col-6">
+                                    <select id="labels" name="labels" class="form-select form-select-sm">
+                                        {% for r in labels %}
+                                        <option {% if rl_data.labels == r %} selected {% endif %} value="{{ r }}">{{ r }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-3">
+                                    <input class="form-control form-control-sm" placeholder="New Label" id="label_new"/>
+                                </div>
+                                <div class="col-3">
+                                    <button type="button" class="btn btn-primary btn-sm w-100" id="add_label" onclick="add_new_label()">+ Add Label</button>
+                                </div>
+                            </div>
+
+                            <h6 class="mb-2">Primary genre <span class="text-danger">*</span></h6>
+                            <select id="primary_genere" name="primary_genere" class="form-select form-select-sm mb-3"></select>
+
+                            <h6 class="mb-2">Secondary genre <span>(optional)</span></h6>
+                            <select id="secondary_genere" name="secondary_genere" class="form-select form-select-sm mb-3"></select>
+
+                            <h6 class="mb-2">Language <span class="text-danger">*</span></h6>
+                            <select id="language" name="language" class="form-select form-select-sm mb-3"></select>
+
+                            <h6 class="mb-2">Album format <span class="text-danger">*</span></h6>
+                            <select id="album_format" name="album_format" class="form-select form-select-sm mb-3"></select>
+
+                            <h6 class="mb-2">Release UPC Code</h6>
+                            <div class="mb-3">
+                                <input type="text" value="{{ rl_data.upc_code }}" class="form-control form-control-sm" id="upc_code" name="upc_code" pattern="[0-9]+" maxlength="13" placeholder="12 or 13 digits (12-digit will get leading 0)">
+                                <div class="form-check mt-1">
+                                    <input {% if rl_data.upc_code == "" %} checked {% endif %} class="form-check-input" type="checkbox" id="upc_code_check" name="upc_code_check">
+                                    <label class="form-check-label small" for="upc_code_check">I don't have one, assign automatically</label>
+                                </div>
+                            </div>
+
+                            <h6 class="mb-2">Release Reference Number <span>(Optional)</span></h6>
+                            <div class="mb-3">
+                                <input type="text" value="{{ rl_data.reference_number }}" class="form-control form-control-sm" id="reference_number" placeholder="Reference Number" name="reference_number">
+                                <div class="form-check mt-1">
+                                    <input {% if rl_data.reference_number == "" %} checked {% endif %} class="form-check-input" type="checkbox" id="reference_number_check" name="reference_number_check">
+                                    <label class="form-check-label small" for="reference_number_check">Request a new Reference Number</label>
+                                </div>
+                            </div>
+
+                            <h6 class="mb-2">Global Release Identifier (GRid) <span>(Optional)</span></h6>
+                            <input type="text" value="{{ rl_data.gr_id|default:'' }}" class="form-control form-control-sm mb-3" id="gr_id" name="gr_id" placeholder="Global Release Identifier">
+
+                            <h6 class="mb-2">Release description (Liner Notes) <span>(Optional)</span></h6>
+                            <textarea class="form-control form-control-sm mb-3" id="release_description" name="release_description" rows="3" placeholder="Release description / Liner Notes">{{ rl_data.release_description|default:'' }}</textarea>
+                        </div>
+
+                        <!-- Full width: Copyright & Phonogram -->
+                        <div class="col-lg-12 mb-4">
+                            <hr class="my-4">
+                            <h6>© Copyright Holder <span class="text-danger">*</span></h6>
+                            <div class="row mb-3">
+                                <div class="col-md-2">
+                                    <input type="text" placeholder="Year (YYYY)" value="{% if rl_data.copyright_holder_year %}{{ rl_data.copyright_holder_year }}{% else %}2026{% endif %}" class="form-control form-control-sm" id="copyright_holder_year" name="copyright_holder_year" pattern="[0-9]{4}" maxlength="4">
+                                </div>
+                                <div class="col-md-10">
+                                    <input type="text" placeholder="Copyright Holder Name" value="{% if rl_data.copyright_holder_name %}{{ rl_data.copyright_holder_name }}{% endif %}" class="form-control form-control-sm" id="copyright_holder_name" name="copyright_holder_name">
+                                </div>
+                            </div>
+                            <h6>℗ Phonogram Rights Holder <span class="text-danger">*</span></h6>
+                            <div class="row">
+                                <div class="col-md-2">
+                                    <input type="text" placeholder="Year (YYYY)" value="{% if rl_data.phonogram_rights_holder_year %}{{ rl_data.phonogram_rights_holder_year }}{% else %}2026{% endif %}" class="form-control form-control-sm" id="phonogram_rights_holder_year" name="phonogram_rights_holder_year" pattern="[0-9]{4}" maxlength="4">
+                                </div>
+                                <div class="col-md-10">
+                                    <input type="text" placeholder="Phonogram Rights Holder Name" value="{% if rl_data.phonogram_rights_holder_name %}{{ rl_data.phonogram_rights_holder_name }}{% endif %}" class="form-control form-control-sm" id="phonogram_rights_holder_name" name="phonogram_rights_holder_name">
+                                </div>
+                            </div>
+                        </div>
+
+
+
+
+                        <div class="col-lg-12  mb-4">
+                            <div class="row mb-1 mt-1">
+                                <div class="col-lg-6"></div>
+                                <div class="col-lg-6" style=" text-align: right;">
+                                    {% if requesting_user_role == "admin" %}
+                                        <button id="in_save_release_info_btn" onclick="submit_releases_form()" type="button"
+                                        class="btn btn-secondary">Update</button>
+                                        {% if is_published == 1 %}
+                                            <button type="button" class="btn btn-sucess" disabled>Distributed</button>
+                                        {% endif %}
+                                    {% else %}
+                                        <button id="in_save_release_info_btn" {% if is_published != 1 %} onclick="submit_releases_form()" {% endif %} type="button"
+                                        class="btn btn-{% if is_published != 1 %}secondary{% else %}success{% endif %}">{% if is_published != 1 %}Update{% else %}Distributed{% endif %}</button>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+    function handleArtistsFromBackend() {
+        let artists_from_database = _.unescape("{{ rl_data.artists_listings }}")
+        artists_from_database = JSON.parse(artists_from_database)
+        for (const [key, value] of Object.entries(artists_from_database)) {
+            for (let i = 0; i < value.length; i++) {
+                parts = value[i].split("|_|")
+                let new_component = `<li id="${key}${parts[0]}">
+                                <b>${key}:</b>&nbsp;<label>${parts[0]}</label> 
+                                &nbsp;<a href="/releases/artists/update/${parts[1]}/" target="_blank"><span class="material-symbols-outlined" style="cursor:pointer;font-size: 1.1rem">edit</span></a>
+                                &nbsp;<span class="material-symbols-outlined" style="cursor:pointer;vertical-align: sub;font-size: 1.1rem " onclick="remove_artist('${key}','${parts[0]}')">close</span>
+                                <input name="artist_release_${key}${parts[1]}" value="('${key}','${parts[1]}')" hidden></input>
+                            </li>`
+                let previous_html = document.getElementById('artists_listings').innerHTML
+                document.getElementById('artists_listings').innerHTML = previous_html + new_component
+                current_selected_artist_roles.push(key);
+            }
+        }
+    }
+    $(document).ready(function () {
+        $(window).keydown(function (event) {
+            if (event.keyCode  ==  13) {
+                event.preventDefault();
+                return false;
+            }
+        });
+        handleArtistsFromBackend(); // Call the function here
+    });
+    
+</script>
+<!-- Release Section End -->
+
+{% endblock rl_content_page %}

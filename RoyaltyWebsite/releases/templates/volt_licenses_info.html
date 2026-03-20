@@ -1,0 +1,206 @@
+{% extends 'volt_releases_base.html' %}
+
+{% block rl_content_page %}
+
+<!-- Licenses Section Start -->
+<script>
+    $(document).ready(function () {
+        $(window).keydown(function (event) {
+            if (event.keyCode  ==  13) {
+                event.preventDefault();
+                return false;
+            }
+        });
+    });
+</script>
+<div class="row">
+    <div class="col">
+        <div class="card">
+            <div class="card-header card-header-primary">
+                <h3 class="card-title">Delivery Options</h3>
+            </div>
+            <div class="card-body table-responsive" id="info">
+                <form id="licenses_form">
+                    <div class="row" style="text-align: left;">
+
+                        <div class="col-lg-12 mb-4">
+                            <div class="row">
+                                <div class="col-lg-6">
+                                    <div class="row">
+                                        <!-- Price Category -->
+                                        <div class="col-lg-12 mb-4">
+                                            <div class="row mb-1 mt-1">
+                                                <div class="col-lg-6">
+                                                    <h5>Price Category: </h5>
+                                                </div>
+                                                <div class="col-lg-6">
+                                                    <select id="price_category" name="price_category"
+                                                        class="form-select form-select-sm mb-1 mt-1"
+                                                        value="{{ rl_data.price_category }}">
+                                                    </select>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <!-- Digital release Date -->
+                                        <div class="col-lg-12 mb-4">
+                                           
+                                            <div class="row mb-1 mt-1">
+                                                <div class="col-lg-6">
+                                                    <h5>Digital Release Date:  </h5>
+                                                </div>
+                                                <div class="col-lg-6">
+
+                                                    <div class="input-group">
+                                                        <span class="input-group-text">
+                                                            <svg class="icon icon-xs" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"></path></svg>
+                                                        </span>
+                                                        <input value="{{ rl_data.digital_release_date }}"  data-datepicker="" class="form-control datepicker"  id="digital_release_date" name="digital_release_date" type="text" placeholder="mm/dd/yyyy" required>
+                                                        
+                                                    </div>
+
+                                                    <!-- <input type="date" placeholder="Digital Release Date (YYYY-MM-DD)"
+                                                        value="{{ rl_data.digital_release_date }}" class="form-control"
+                                                        id="digital_release_date" name="digital_release_date"> -->
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <!-- Original Release Date -->
+                                        <div class="col-lg-12 mb-4">
+                                            <div class="row mb-1 mt-1">
+                                                    <div class="col-lg-6">
+                                                        <h5>Original Release Date:  </h5>
+                                                    </div>
+                                                    <div class="col-lg-6">
+                                                        <div class="input-group">
+                                                            <span class="input-group-text">
+                                                                <svg class="icon icon-xs" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"></path></svg>
+                                                            </span>
+                                                            <input   value="{{ rl_data.original_release_date }}" data-datepicker="" class="form-control"  id="original_release_date" name="original_release_date" type="text" placeholder="mm/dd/yyyy" required>
+                                                        </div>
+                                                        <!-- 
+                                                        <input type="date" placeholder="Original Release Date (YYYY-MM-DD)"
+                                                            value="{{ rl_data.original_release_date }}" class="form-control"
+                                                            id="original_release_date" name="original_release_date"> -->
+                                                    </div>
+                                            </div>
+                                        </div>
+                                        <!-- License Type format -->
+                                        <div class="col-lg-12 mb-4 ">
+                                            <div class="row mb-1 mt-1">
+                                                <div class="col-lg-6">
+                                                    <h5>License Type format: </h5>
+                                                </div>
+                                                <div class="col-lg-6">
+                                                    <div style="display: flex;">
+                                                        <div class="radio">
+                                                            <input label="Copyright" type="radio" id="copyright"
+                                                                name="license_type_format_toggle" value="Copyright"
+                                                                {% if rl_data.license_type_format_toggle|lower == "copyright" %}
+                                                                checked="true" {% endif %} 
+                                                                {% if not rl_data.license_type_format_toggle %}
+                                                                checked="true" {% endif %} 
+                                                                required>
+                                                            <input label="Creative Common" type="radio"
+                                                                id="creative_common"
+                                                                name="license_type_format_toggle"
+                                                                value="Creative Common" {% if rl_data.license_type_format_toggle|lower == "creative common" %} checked="true" {% endif %} required>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-lg-6">
+                                    <div class="row">
+
+
+
+                                        <!-- License holder -->
+                                        <div class="col-lg-12 mb-4 p-0">
+                                            <div class="row mb-1 mt-1">
+                                                <div class="col-lg-4">
+                                                    <h5>License holder:  </h5>
+                                                </div>
+                                                <div class="col-lg-4">
+                                                    <input type="text" placeholder="License Holder Year (YYYY)" {% if  rl_data.license_holder_year %}
+                                                        value="{{ rl_data.license_holder_year  }}" {% else %}
+                                                        value="2026" {% endif %} class="form-control" pattern="[0-9]{4}"
+                                                        maxlength="4" id="license_holder_year"
+                                                        name="license_holder_year">
+                                                </div>
+                                                <div class="col-lg-4">
+                                                    <input type="text" placeholder="License Holder Name"
+                                                        value="{{ rl_data.license_holder_name }}" class="form-control"
+                                                        id="license_holder_name" name="license_holder_name">
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <!-- copyright recording -->
+                                        <div class="col-lg-12 mb-4 p-0">
+                                            <div class="row mb-1 mt-1">
+                                                <div class="col-lg-4">
+                                                    <h5>(P) Copyright for sound recordings:  </h5>
+                                                </div>
+                                                <div class="col-lg-4">
+                                                    <input type="text" placeholder="Copyright Year (YYYY)" {%if rl_data.copyright_recording_year %}
+                                                        value="{{ rl_data.copyright_recording_year }}" {% else %}
+                                                        value="2026" {% endif %} class="form-control" pattern="[0-9]{4}"
+                                                        maxlength="4" id="copyright_recording_year"
+                                                        name="copyright_recording_year">
+                                                </div>
+                                                <div class="col-lg-4">
+                                                    <input type="text" value="{{ rl_data.copyright_recording_name }}"
+                                                        class="form-control" id="copyright_recording_name"
+                                                        name="copyright_recording_name" placeholder="Copyright Text">
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <!-- Terretories -->
+                                        <div class="col-lg-12 mb-4 p-0">
+                                            <div class="row mb-1 mt-1">
+                                                <div class="col-lg-6">
+                                                    <h5>Territories:<span>(optional)</span></h5>
+                                                </div>
+                                                <div class="col-lg-6">
+                                                    <select disabled id="territories" name="territories"
+                                                        class="form-select form-select-sm mb-1 mt-1"
+                                                        value="{{ rl_data.territories }}">
+                                                        <option selected value='Entire World'>Entire World</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-lg-12 mb-4 p-0">
+                                <div class="row mb-1 mt-1">
+                                    <div class="col-lg-6">
+                                    </div>
+                                    <div class="col-lg-6" style=" text-align: right;">
+                                        {% if requesting_user_role == "admin" %}
+                                            <button id="in_save_licenses_info_btn" onclick="submit_licenses_form()" type="button"
+                                            class="btn btn-secondary">Update</button>
+                                            {% if is_published == 1 %}
+                                                <button type="button" class="btn btn-sucess" disabled>Distributed</button>
+                                            {% endif %}
+                                        {% else %}
+                                        <button id="in_save_licenses_info_btn" {% if is_published != 1 %} onclick="submit_licenses_form()" {% endif %}
+                                            class="btn btn-{% if is_published != 1 %}secondary{% else %}success{% endif %}" 
+                                            type="button">{% if is_published != 1 %}Update{% else %}Distributed{% endif %}</button>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Licenses Section End -->
+
+
+{% endblock rl_content_page %}

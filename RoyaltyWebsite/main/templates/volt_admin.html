@@ -1,0 +1,559 @@
+{% extends 'volt_base.html' %}
+{% load static %}
+{% block nav_content %}
+<div class="d-flex align-items-center">
+  <button class="btn btn-gray-800 d-inline-flex align-items-center me-2" onclick="refresh_due_balance()"
+    id="due_balance_div">
+    <span class="material-symbols-outlined">
+      refresh
+    </span>
+    &nbsp Due Balance: 0
+  </button>
+</div>
+{%endblock nav_content%}
+
+{% block content %}
+<div id="error">
+  <div class="row">
+    <div class="col-12 mb-4">
+      <div class="card border-0 shadow components-section">
+        <div class="card-body">
+          <div class="row mb-4" id="basic-filters">
+            <div class="col-lg-4 col-sm-6">
+              <div class="mb-3">
+                <label for="from_date_filter">From</label>
+                <div class="input-group col-lg-6">
+                  <span class="input-group-text">
+                    <svg class="icon icon-xs text-gray-600" fill="currentColor" viewBox="0 0 20 20"
+                      xmlns="http://www.w3.org/2000/svg">
+                      <path fill-rule="evenodd"
+                        d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z"
+                        clip-rule="evenodd"></path>
+                    </svg>
+                  </span>
+                  <input data-datepicker="" class="form-control" id="date_start" type="text" placeholder="dd/mm/yyyy"
+                    required>
+                </div>
+              </div>
+            </div>
+            <div class="col-lg-4 col-sm-6">
+              <div class="mb-3">
+                <label for="to_date_filter">To</label>
+                <div class="input-group col-lg-6">
+                  <span class="input-group-text">
+                    <svg class="icon icon-xs text-gray-600" fill="currentColor" viewBox="0 0 20 20"
+                      xmlns="http://www.w3.org/2000/svg">
+                      <path fill-rule="evenodd"
+                        d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z"
+                        clip-rule="evenodd"></path>
+                    </svg>
+                  </span>
+                  <input data-datepicker="" class="form-control" id="date_end" type="text" placeholder="dd/mm/yyyy"
+                    required>
+                </div>
+              </div>
+            </div>
+            <div class="col-lg-4 col-sm-6">
+              <div class="mb-3">
+                <br>
+                <div class="col-lg-12">
+                  <button type="button" onclick="submit_date_filter()" class="btn btn-secondary">
+                    Apply
+                  </button>
+                  <button type="button" onclick="change_filter_type('confirmed-filters','basic-filters')" class="btn btn-primary">
+                    Switch to Confirmed Sales
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="row mb-4" id="confirmed-filters" style="display: none;">
+            <div class="col-lg-4 col-sm-6">
+              <div class="mb-3">
+                <label for="from_date_filter">Confirmed Sales Month</label>
+                <div class="input-group col-lg-6">
+                  <select class="form-control" id="confirmed_sales_month">
+                    {% for date, display in confirmed_dates_list.items %}
+                      <option value="{{ display }}">{{ date }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+              </div>
+            </div>
+            <div class="col-lg-4 col-sm-6">
+              <div class="mb-3">
+                <br>
+                <div class="col-lg-6">
+                  <button type="button" onclick="update_date('','',false)" class="btn btn-secondary">
+                    Apply
+                  </button>
+                  <button type="button" onclick="change_filter_type('basic-filters','confirmed-filters')" class="btn btn-primary">
+                    Switch to Basic
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="row mb-5 mb-lg-5">
+            <label for="channels_filter">Channels</label>
+            <div class="" id="channel_load">
+              <div class="table-responsive" id="input-table"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header card-header-primary">
+      <h3 class="card-title">Channel Revenue</h3>
+      <p class="mb-0" id="channel_revenue_stores_ratio"></p>
+      <p class="mb-0" id="channel_revenue_yt_ratio"></p>
+    </div>
+    <div class="table-responsive py-4" id="table-channel-body">
+      <table class="table table-flush" id="data_table_channel">
+      </table>
+    </div>
+  </div>
+  <br>
+  <div class="row justify-content-lg-center">
+    <div class="col-lg-12">
+      <div class="card bg-warning" id='line_card'>
+        <div class="card-header card-header-primary">
+          <h3 class="card-title">Visualization</h3>
+        </div>
+        <div class="card-body">
+          <div>
+            <canvas id="line_chart" width="1000" height="600" style="display: block; margin: 0 auto"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <br>
+  <div class="row col-lg-12 col-md-12 col-sm-12">
+    <div class="col-lg-6 col-md-6 col-sm-12">
+      <div class="card">
+        <div class="card-header card-header-primary">
+          <h3 class="card-title">Top Tracks</h3>
+        </div>
+        <div class="table-responsive py-4" id="table-tracks-body">
+          <table class="table table-flush" id="data_table_tracks">
+          </table>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-6 col-md-6 col-sm-12">
+      <div id="track_channel_parent_div"></div>
+    </div>
+  </div>
+  <br>
+  <div class="row col-lg-12 col-md-12 col-sm-12">
+    <div class="col-lg-12 col-md-12 col-sm-12">
+      <div class="card">
+        <div class="card-header card-header-primary">
+          <h3 class="card-title">YouTube Official Channel</h3>
+        </div>
+      <div class="table-responsive py-4" id="table-youtube-channels-body">
+        <table class="table table-flush" id="data_table_youtube_channels">
+        </table>
+      </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function monthDiff(d1, d2) {
+    var months;
+    months = (d2.getFullYear() - d1.getFullYear()) * 12;
+    months -= d1.getMonth();
+    months += d2.getMonth();
+    return months <= 0 ? 0 : months;
+  }
+  function createDate(dt) {
+    return String((dt.getMonth() + 1)) + "/" + String(dt.getFullYear())
+  }
+</script>
+<script>
+  var lines;
+  var labels;
+  var lineChart;
+  var all_channels;
+  var slider = false;
+  var track_channels;
+  var ratio;
+  var yt_ratio;
+  var last_end_date_called = "NONE";
+  var last_start_date_called = "NONE";
+  var filterType = "basic-filters";
+
+  function change_filter_type(target, current) {
+    let target_container = document.getElementById(target);
+    let current_container = document.getElementById(current);
+    target_container.style.display = 'flex';
+    current_container.style.display = 'none';
+    filterType = target;
+  }
+
+  function get_line_data(left_date, right_date, update_slider) {
+    set_loading('#line_card');
+    set_loading('#table-tracks-body');
+    set_loading('#table-channel-body');
+    set_loading('#table-youtube-channels-body');
+    set_loading('#channel_load');
+    $("#track_channels").html('<div></div>');
+    last_start_date_called = left_date;
+    last_end_date_called = right_date;
+    let confirmed_sales_month = document.getElementById("confirmed_sales_month");
+    $.ajax({
+      type: "GET",
+      data: {
+        left_date: left_date,
+        right_date: right_date,
+        confirmed_sales_month: confirmed_sales_month ? confirmed_sales_month.value : undefined,
+        filter_type: filterType,
+        username: "{{ username }}"
+      },
+      url: "{% url 'get_line_chart_and_top_tracks'%}",  // URL to your view that serves new info
+    }).then(function (response) {
+      set_loading('#line_card');
+      set_loading('#table-tracks-body');
+      set_loading('#table-channel-body');
+      set_loading('#table-youtube-channels-body');
+      set_loading('#channel_load');
+      // Always show UI elements (due balance, date filters, switch button) even if no data
+      // Only hide/show data tables if there's an error
+      if (response.error) {
+        $("#error").html('<div class="alert alert-danger" role="alert">No Data Found!</div>')
+        // Still show empty tables so UI remains visible
+        $("#table-tracks-body").html('<table class="table table-flush" id="data_table_tracks"><thead class="thead-light"><th>Track Name</th><th>Units Sold</th><th>Gross Total (INR)</th><th>Net Total (INR)</th></thead><tbody><tr><td colspan="4" style="text-align:center;">No track data found</td></tr></tbody></table>');
+        $("#table-youtube-channels-body").html('<table class="table table-flush" id="data_table_youtube_channels"><thead class="thead-light"><th>Channel Name</th><th>Gross Total (INR)</th><th>Net Total (INR)</th></thead><tbody><tr><td colspan="3" style="text-align:center;">No YouTube Channel data found</td></tr></tbody></table>');
+        $("#table-channel-body").html('<table class="table table-flush" id="data_table_channel"><thead class="thead-light"><th>Channel Name</th><th>Units Sold</th><th>Gross Total (INR)</th><th>Net Total (INR)</th></thead><tbody><tr><td colspan="4" style="text-align:center;">No channel data found</td></tr></tbody></table>');
+      } else {
+        labels = response.labels || [];
+        lines = response.lines || {};
+        all_channels = response.top_channels || {};
+        ratio = response.ratio || 0;
+        yt_ratio = response.yt_ratio || 0;
+        track_channels = response.track_channels || {};
+        // Use effective date range so channel breakdown uses same period on first load (last 6 months)
+        if (response.effective_left_date) last_start_date_called = response.effective_left_date;
+        if (response.effective_right_date) last_end_date_called = response.effective_right_date;
+        var body = '<table class="table table-centered table-nowrap mb-0 rounded"><tbody><tr><td></td><td></td><td><input class="form-check-input" value="" type="checkbox" onchange="update_checks()" checked="true" id="check_all"></td><td><label class="form-check-label" for="check_all">All/None</label></td><td></td><td></td></tr>';
+        var ind = 0;
+        var tds = "";
+        var to_check_ind = 0;
+        for (var n in lines) {
+          var check = ""
+          if (to_check_ind < 4) {
+            check = " checked"
+            to_check_ind += 1
+          }
+          var td = '<td style="text-align: left;"><input class="form-check-input" type="checkbox" checked="true" onchange="general_update()" value="" id="check_' + n + '"></td><td><label class="form-check-label" for="defaultCheck10">' + n + "</label></td>";
+          tds += td;
+          if (ind == 2) {
+            body += "<tr>" + tds + "</tr>";
+            tds = "";
+            ind = 0;
+          } else {
+            ind += 1;
+          }
+        }
+        if (ind != 0) {
+          body += "<tr>" + tds + "</tr>"
+        }
+        body += "</tbody></table>"
+        date_options = "<option value='NONE' selected>Choose a Date</option>"
+        for (var date_ind in labels) {
+          var date = labels[date_ind]
+          date_options += "<option value='" + date + "'>" + date + "</option>"
+        }
+        $("#input-table").html(body);
+        $("#table-tracks-body").html(response.table || '<table class="table table-flush" id="data_table_tracks"><thead class="thead-light"><th>Track Name</th><th>Units Sold</th><th>Gross Total (INR)</th><th>Net Total (INR)</th></thead><tbody><tr><td colspan="4" style="text-align:center;">No track data found</td></tr></tbody></table>');
+        // Display YouTube channels table if available
+        if (response.youtube_channels_table) {
+          $("#table-youtube-channels-body").html(response.youtube_channels_table);
+          var dataTableYoutube = document.getElementById('data_table_youtube_channels');
+          if (dataTableYoutube) {
+            new simpleDatatables.DataTable(dataTableYoutube, { footer: true });
+          }
+        } else {
+          $("#table-youtube-channels-body").html('<table class="table table-flush" id="data_table_youtube_channels"><thead class="thead-light"><th>Channel Name</th><th>Gross Total (INR)</th><th>Net Total (INR)</th></thead><tbody><tr><td colspan="3" style="text-align:center;">No YouTube Channel data found</td></tr></tbody></table>');
+        }
+        // Only update channels and line if we have data
+        if (Object.keys(all_channels).length > 0 || Object.keys(lines).length > 0) {
+          update_channels();
+          update_line();
+          if (document.getElementById("check_all")) {
+            document.getElementById("check_all").checked = true;
+          }
+        } else {
+          // Show empty channel table
+          var emptyChannelTable = '<table style="width="100%" class="table table-flush" id="data_table_channel"><thead class="thead-light"><th>Channel Name</th><th>Units Sold</th><th>Gross Total (INR)</th><th>Net Total (INR)</th></thead><tbody><tr><td colspan="4" style="text-align:center;">No channel data found</td></tr></tbody></table>';
+          $("#table-channel-body").html(emptyChannelTable);
+          // Show empty line chart area
+          var ctx = document.getElementById('line_chart');
+          if (ctx) {
+            if (lineChart != null) {
+              lineChart.destroy();
+            }
+            // Create empty chart
+            lineChart = new Chart(ctx.getContext('2d'), {
+              type: 'line',
+              data: { labels: [], datasets: [] },
+              options: { responsive: true }
+            });
+          }
+        }
+      }
+    });
+  }
+  function submit_date_filter() {
+    var start_filter_date = document.getElementById("date_start").value;
+    var end_filter_date = document.getElementById("date_end").value;
+
+    if (start_filter_date !== "") {
+      var parts = start_filter_date.split('/');
+      start_filter_date = new Date(parts[2] + '-' + parts[0] + '-01')
+
+    }
+    if (end_filter_date !== "") {
+      var parts = end_filter_date.split('/');
+      end_filter_date = new Date(parts[2] + '-' + parts[0] + '-28')
+    }
+    if (start_filter_date !== "" && end_filter_date !== "") {
+      var diff = monthDiff(start_filter_date, end_filter_date)
+      diff = diff + 1;
+      if (diff > 6) {
+        sendSweetAlert('warning', '', "Date needs to be in range of 6 months");
+      }
+      else {
+        update_date(createDate(start_filter_date), createDate(end_filter_date))
+      }
+    }
+    else {
+      sendSweetAlert('warning', '', "Please select date range (not greater than 6 months)");
+    }
+  }
+  function update_date(start_filter_date, end_filter_date) {
+    if (start_filter_date === "") {
+      start_filter_date = "NONE";
+    }
+    if (end_filter_date === "") {
+      end_filter_date = "NONE";
+    }
+    get_line_data(start_filter_date, end_filter_date, false);
+  }
+  function update_checks() {
+    for (var name in lines) {
+      document.getElementById("check_" + name).checked = document.getElementById("check_all").checked;
+    }
+    general_update();
+  }
+  function update_line() {
+    var ctxElement = document.getElementById('line_chart');
+    if (!ctxElement) return;
+    
+    var ctx = ctxElement.getContext('2d');
+    var new_lines = [];
+    
+    // Only process if we have lines data
+    if (lines && typeof lines === 'object') {
+      for (var name in lines) {
+        var checkElement = document.getElementById("check_" + name);
+        if (checkElement && checkElement.checked) {
+          new_lines.push(lines[name]);
+        }
+      }
+    }
+    
+    var lineData = {
+      labels: labels || [],
+      datasets: new_lines
+    };
+    
+    if (lineChart != null) {
+      lineChart.destroy();
+    }
+    
+    // Only create chart if we have data
+    if (new_lines.length > 0 && labels.length > 0) {
+      lineChart = new Chart(ctx, {
+        type: 'line',
+        data: lineData,
+        options: {
+          responsive: true,
+          legend: {
+            display: true,
+            labels: {
+              fontColor: '#333',
+              usePointStyle: true
+            }
+          },
+          scales: {
+            xAxes: [{
+              gridLines: {
+                display: false
+              }
+            }],
+            yAxes: [{
+              gridLines: {
+                display: true,
+                drawBorder: false
+              }
+            }]
+          }
+        }
+      });
+    } else {
+      // Create empty chart
+      lineChart = new Chart(ctx, {
+        type: 'line',
+        data: { labels: [], datasets: [] },
+        options: { responsive: true }
+      });
+    }
+    
+    var dataTableTracks = document.getElementById('data_table_tracks');
+    if (dataTableTracks) {
+      const dataTable = new simpleDatatables.DataTable(dataTableTracks);
+    }
+  }
+  function update_channels() {
+    var total_revenue = 0;
+    var total_units = 0;
+    var net_total = 0;
+    var channel_revenue_stores_ratio = document.getElementById('channel_revenue_stores_ratio');
+    var channel_revenue_yt_ratio = document.getElementById('channel_revenue_yt_ratio');
+    
+    if (channel_revenue_stores_ratio) {
+      channel_revenue_stores_ratio.innerHTML = 'Store Ratio: ' + (ratio || 0);
+    }
+    if (channel_revenue_yt_ratio) {
+      channel_revenue_yt_ratio.innerHTML = 'Youtube Ratio: ' + (yt_ratio || 0);
+    }
+    
+    var table = '<table style="width="100%" class="table table-flush" id="data_table_channel"><thead class="thead-light"><th>Channel Name</th><th>Units Sold</th><th>Gross Total (INR)</th><th>Net Total (INR)</th></thead><tbody>'
+    
+    // Only process if we have channels data
+    if (all_channels && typeof all_channels === 'object') {
+      for (var channel in all_channels) {
+        var checkElement = document.getElementById("check_" + channel);
+        if (checkElement && checkElement.checked) {
+          channel_revenue = Number(all_channels[channel]['gross_total']) || 0;
+          channel_units = Number(all_channels[channel]['units']) || 0;
+          channel_percent = Number(all_channels[channel]['net_total_INR']) || 0;
+          total_revenue += channel_revenue;
+          total_units += channel_units;
+          net_total += channel_percent;
+          table += "<tr><td>" + channel + "</td><td>" + (Math.round((channel_units) * 100) / 100) + "</td><td>" + (Math.round((channel_revenue) * 100) / 100) + "</td><td>" + (Math.round((channel_percent) * 100) / 100) + "</td></tr>"
+        }
+      }
+    }
+    console.log('[Channels total] units type:', typeof total_units, '| total_units:', total_units, '| total_revenue:', total_revenue, '| net_total:', net_total);
+    if (total_revenue === 0 && total_units === 0 && net_total === 0) {
+      table += "<tr><td colspan='4' style='text-align:center;'>No channel data found</td></tr>"
+    } else {
+      table += "</tbody><tfoot><tr><td><b>Total</b></td><td><b>" + (Math.round((total_units) * 100) / 100) + "</b></td><td><b>" + (Math.round((total_revenue) * 100) / 100) + "</b></td><td><b>" + net_total.toFixed(2) + "</b></td></tr>"
+    }
+    table += "</tfoot></table>"
+    $("#table-channel-body").html(table);
+    var dataTableChannel = document.getElementById('data_table_channel');
+    if (dataTableChannel) {
+      const dataTable = new simpleDatatables.DataTable(dataTableChannel, {
+        footer: true
+      });
+    }
+  }
+  function general_update() {
+    update_line();
+    update_channels();
+  }
+  function break_down_tracks(trackname) {
+    set_loading("#track_channel_parent_div")
+    let confirmed_sales_month = document.getElementById("confirmed_sales_month");
+    $.ajax({
+      type: "GET",
+      data: {
+        left_date: last_start_date_called || "NONE",
+        right_date: last_end_date_called || "NONE",
+        confirmed_sales_month: confirmed_sales_month ? confirmed_sales_month.value : undefined,
+        filter_type: filterType,
+        username: "{{ username }}",
+        track: trackname
+      },
+      url: "{% url 'fetch_track_channels' %}",
+    }).then(function (response) {
+      if (response.track_error) {
+        sendSweetAlert('error', '', "Failed to fetch records for track " + trackname);
+      } else {
+        set_loading("#track_channel_parent_div")
+        var current_track = trackname.replaceAll("|_|", " ");
+        var html = '<div class="card"><div class="card-header card-header-primary"><h3 class="card-title">' + current_track + '</h3></div><div class="table-responsive py-4" id="table-track-channels-body"><table class="table table-flush" id="data_table_track_channels"><thead class="thead-light"<tr><th>Channel Name</th><th>Units Sold</th><th>Gross Total (INR)</th><th>Net Total (INR)</th></tr></thead><tbody>';
+        var table = ''
+        var total_revenue = 0;
+        var total_units = 0;
+        var net_total = 0;
+        var track_object = response.track_channels[current_track]
+        for (var channel_ind in track_object) {
+          channel_name = track_object[channel_ind]['channel']
+          channel_revenue = Number(track_object[channel_ind]['gross_total']) || 0;
+          net_revenue = Number(track_object[channel_ind]['net_total_INR']) || 0;
+          channel_units = Number(track_object[channel_ind]['units']) || 0;
+          total_revenue += channel_revenue;
+          total_units += channel_units;
+          net_total += net_revenue;
+          // Units: display as integer (no decimals); gross/net: 2 decimals
+          table += "<tr><td>" + channel_name + "</td><td>" + Math.round(channel_units) + "</td><td>" + (Math.round((channel_revenue) * 100) / 100) + "</td><td>" + (Math.round((net_revenue) * 100) / 100) + "</td></tr>"
+        }
+        // Total row: units as integer (no decimals), no scientific notation - keep tfoot so Total is visible
+        table += "</tbody><tfoot><tr><td><b>Total</b></td><td><b>" + Math.round(total_units) + "</b></td><td><b>" + (Math.round((total_revenue) * 100) / 100) + "</b></td><td><b>" + net_total.toFixed(2) + "</b></td></tr>"
+        table += "</tfoot></table>"
+        html = html + table + "</div></div>"
+        $("#track_channel_parent_div").html(html);
+        var dataTableTrackChannels = document.getElementById('data_table_track_channels');
+        if (dataTableTrackChannels) {
+          new simpleDatatables.DataTable(dataTableTrackChannels, { footer: false });
+          // Restore Total row (DataTable with footer:false strips tfoot) so "Total of all channels" is always visible
+          if (!dataTableTrackChannels.querySelector('tfoot')) {
+            var tfoot = document.createElement('tfoot');
+            tfoot.innerHTML = '<tr><td><b>Total</b></td><td><b>' + Math.round(total_units) + '</b></td><td><b>' + (Math.round((total_revenue) * 100) / 100) + '</b></td><td><b>' + net_total.toFixed(2) + '</b></td></tr>';
+            dataTableTrackChannels.appendChild(tfoot);
+          }
+        }
+      }
+    });
+  }
+  get_line_data("NONE", "NONE", false);
+</script>
+<script>
+  function refresh_due_balance() {
+    set_loading("#due_balance_div", true, 0);
+    $.ajax({
+      type: "GET",
+      url: "{% url 'refresh_due_balance' username %}",
+    }).then(function (response) {
+      if (response.due_error) {
+      } else {
+        $("#due_balance_div").html('<span class="material-symbols-outlined">refresh</span>&nbsp Due Balance: ' + response.due_balance);
+      }
+    });
+  }
+  function get_due_balance() {
+    set_loading("#due_balance_div", true, 0)
+    $.ajax({
+      type: "GET",
+      url: "{% url 'due_balance' username %}",
+    }).then(function (response) {
+      set_loading("#due_balance_div", true, 0)
+      if (response.due_error) {
+      } else {
+        $("#due_balance_div").html('<span class="material-symbols-outlined">refresh</span>&nbsp Due Balance: ' + response.due_balance);
+      }
+    });
+  }
+  get_due_balance();
+</script>
+{% endblock content %}

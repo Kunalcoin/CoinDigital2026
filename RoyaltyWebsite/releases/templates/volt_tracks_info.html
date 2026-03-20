@@ -1,0 +1,255 @@
+{% extends 'volt_releases_base.html' %}
+{% block rl_content_page %}
+{% csrf_token %}
+<!-- SortableJS for drag-and-drop reorder -->
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+<script>
+$(document).ready(function() {
+$(window).keydown(function(event){
+    if(event.keyCode == 13) {
+    event.preventDefault();
+    return false;
+    }
+});
+});
+</script>
+<script>
+    var can_create = true;
+    var primary_uuid = "{{ primary_uuid }}";
+
+    function onClickCreateTrack() {
+        set_loading("#in_create_track_info_btn", true, 0);
+        new_track_title = document.getElementById("new_track_title").value;
+
+        const allowedCharsRegex = /^[a-zA-Z0-9\s|()#&\-',."\!\?\[\]:\/\+\%\*]+$/;
+
+        if (new_track_title.trim() != "") {
+            if (!allowedCharsRegex.test(new_track_title.trim())) {
+                set_loading("#in_create_track_info_btn", false, 0);
+                sendSweetAlert('warning', '', "Track name can only contain alphanumeric characters, spaces, and these special characters: | ( ) # & - ' ,");
+                return;
+            }
+
+            $.ajax({
+                type: "POST",
+                url: "/releases/tracks_info/{{ primary_uuid }}",
+                data: {
+                    "new_track_title": new_track_title.trim(),
+                    "csrfmiddlewaretoken": $('[name=csrfmiddlewaretoken]').val() || ""
+                },
+                headers: { "X-CSRFToken": $('[name=csrfmiddlewaretoken]').val() || "" },
+                dataType: "json",
+                timeout: 30000
+            }).then(function (response) {
+                if (!response || response.primary_track_uuid == null || response.primary_track_uuid === undefined) {
+                    set_loading("#in_create_track_info_btn", false, 0);
+                    sendSweetAlert('error', 'Create Track Failed', response && response.error_message ? response.error_message : 'Invalid response from server.');
+                    return;
+                }
+                let newlink = window.location.href + '/track/' + response.primary_track_uuid;
+                window.location.href = newlink;
+            }).fail(function (xhr, status, err) {
+                set_loading("#in_create_track_info_btn", false, 0);
+                var msg = (status === "timeout") ? "Request timed out. Please try again." : "Request failed. Please try again.";
+                if (xhr && xhr.responseJSON && (xhr.responseJSON.error_message || xhr.responseJSON.message)) {
+                    msg = xhr.responseJSON.error_message || xhr.responseJSON.message;
+                } else if (xhr && xhr.responseText) {
+                    try {
+                        var o = JSON.parse(xhr.responseText);
+                        if (o && (o.error_message || o.message)) msg = o.error_message || o.message;
+                    } catch (e) {}
+                }
+                sendSweetAlert('error', 'Create Track Failed', msg);
+            });
+        }
+        else {
+            set_loading("#in_create_track_info_btn", false, 0);
+            sendSweetAlert('warning', '', "Please provide a valid track name!");
+        }
+    }
+
+    function remove_track(primary_track_uuid, href_link) {
+        $.ajax({
+            type: "DELETE",
+            url: href_link,
+        }).then(function (response) {
+            sendSweetAlert('basic', 'Removed Successfully', response.message);
+            $('#' + primary_track_uuid).remove();
+            saveTrackOrder();
+        });
+    }
+
+    function saveTrackOrder() {
+        var ids = [];
+        $('#tracks_list .track-row').each(function() { ids.push($(this).data('track-id')); });
+        if (ids.length === 0) return;
+        $.ajax({
+            type: "POST",
+            url: "/releases/tracks_info/" + primary_uuid + "/reorder_tracks/",
+            contentType: "application/json",
+            data: JSON.stringify({ track_ids: ids }),
+            headers: { "X-CSRFToken": $('[name=csrfmiddlewaretoken]').val() || "" }
+        }).then(function() {}, function() {});
+    }
+
+    function initSortable() {
+        if (typeof Sortable === 'undefined') return;
+        var list = document.getElementById('tracks_list');
+        if (!list) return;
+        Sortable.create(list, {
+            animation: 150,
+            handle: '.track-drag-handle',
+            onEnd: function() { saveTrackOrder(); }
+        });
+    }
+
+    function openCatalogModal() {
+        $('#catalogTrackModal').modal('show');
+        $('#catalog_tracks_loading').show();
+        $('#catalog_tracks_list').empty();
+        $.get("/releases/tracks_info/" + primary_uuid + "/catalog_tracks/").then(function(res) {
+            $('#catalog_tracks_loading').hide();
+            if (res.tracks && res.tracks.length) {
+                $('#catalog_tracks_list_header').removeClass('d-none');
+                res.tracks.forEach(function(t) {
+                    var isrcDisplay = (t.isrc && t.isrc.trim()) ? t.isrc.trim() : '—';
+                    var row = $('<div class="d-flex justify-content-between align-items-center border-bottom py-2 catalog-track-row" data-track-id="' + t.id + '">' +
+                        '<div class="flex-grow-1"><strong>' + (t.title || '') + '</strong> <small class="text-muted">' + (t.release_title || '') + '</small></div>' +
+                        '<div class="me-3"><code class="isrc-code">' + isrcDisplay + '</code></div>' +
+                        '<button type="button" class="btn btn-sm btn-primary add-catalog-btn">Add</button></div>');
+                    row.find('.add-catalog-btn').on('click', function() { addFromCatalog(t.id, row); });
+                    $('#catalog_tracks_list').append(row);
+                });
+            } else {
+                $('#catalog_tracks_list_header').addClass('d-none');
+                $('#catalog_tracks_list').html('<p class="text-muted mb-0">No tracks in your catalog (from your other releases) with audio.</p>');
+            }
+        }).fail(function() {
+            $('#catalog_tracks_loading').hide();
+            $('#catalog_tracks_list').html('<p class="text-danger">Failed to load catalog.</p>');
+        });
+    }
+
+    function addFromCatalog(trackId, rowEl) {
+        rowEl.find('.add-catalog-btn').prop('disabled', true).text('Adding…');
+        var fd = new FormData();
+        fd.append('catalog_track_id', trackId);
+        fd.append('csrfmiddlewaretoken', $('[name=csrfmiddlewaretoken]').val() || '');
+        $.ajax({
+            type: "POST",
+            url: "/releases/tracks_info/" + primary_uuid + "/add_from_catalog/",
+            data: fd,
+            processData: false,
+            contentType: false
+        }).then(function(res) {
+            $('#catalogTrackModal').modal('hide');
+            sendSweetAlert('success', '', 'Track added.');
+            window.location.reload();
+        }).fail(function(xhr) {
+            var msg = (xhr.responseJSON && xhr.responseJSON.error) || 'Failed to add track';
+            sendSweetAlert('error', '', msg);
+            rowEl.find('.add-catalog-btn').prop('disabled', false).text('Add');
+        });
+    }
+
+    $(document).ready(function() { initSortable(); });
+</script>
+
+<!-- Modal: Create track (From Computer) -->
+<div class="modal fade" id="createTrackModal" tabindex="-1" role="dialog" aria-labelledby="modal-default" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="h6 modal-title">Create Track (from computer)</h2>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <label for="name_id">New Track Title: </label>
+                <div class="input-group">
+                    <input type="text" placeholder="name" id="new_track_title"
+                    {% if is_single_track %} disabled value="{{ release_title }}" {% endif %}
+                    name="new_track_title" class="form-control" pattern="[a-zA-Z0-9\s|()#&\-',]+" title="Only alphanumeric characters, spaces, and these special characters are allowed: | ( ) # & - ' ," >
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" id="in_create_track_info_btn" onclick="onClickCreateTrack()" class="btn btn-secondary">Create</button>
+                <button type="button" class="btn btn-link text-gray ms-auto" data-bs-dismiss="modal">Cancel</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: From Catalog -->
+<div class="modal fade" id="catalogTrackModal" tabindex="-1" role="dialog" aria-labelledby="catalogModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="h6 modal-title" id="catalogModalLabel">Add track from catalog</h2>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted small">Tracks from your other releases that have been delivered (with audio and ISRC). Every delivered track has an ISRC; the same ISRC is kept when you add the track to this release.</p>
+                <div id="catalog_tracks_loading" class="text-center py-3">Loading…</div>
+                <div id="catalog_tracks_list_header" class="d-flex justify-content-between align-items-center border-bottom py-2 fw-bold small text-muted d-none">
+                    <span>Track / Release</span>
+                    <span class="me-3">ISRC</span>
+                    <span style="width: 60px;"></span>
+                </div>
+                <div id="catalog_tracks_list"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-12">
+        <div class="card">
+            <div class="card-header card-header-primary">
+                <h3 class="card-title">Track List</h3>
+            </div>
+            <div class="card-body">
+                <h5 class="mb-3">Add Tracks</h5>
+                <div class="d-flex flex-wrap gap-2 mb-4">
+                    <button {% if can_create == False or is_published == 1 %} disabled {% endif %}
+                        class="btn btn-md btn-primary"
+                        data-bs-toggle="modal"
+                        data-bs-target="#createTrackModal">
+                        <span class="material-symbols-outlined" style="cursor:pointer;vertical-align: sub;">computer</span>
+                        &nbsp; From Computer
+                    </button>
+                    <button {% if can_create == False or is_published == 1 %} disabled {% endif %}
+                        class="btn btn-md btn-outline-primary"
+                        onclick="openCatalogModal()">
+                        <span class="material-symbols-outlined" style="cursor:pointer;vertical-align: sub;">folder_open</span>
+                        &nbsp; From Catalog
+                    </button>
+                </div>
+                <p class="text-muted small mb-2">Drag tracks to set the sequence. Order is saved automatically.</p>
+                <ul id="tracks_list" class="list-unstyled mb-0">
+                    {% for r in rl_data.all_tracks %}
+                    <li class="track-row border rounded p-2 mb-2 d-flex align-items-center" id="{{ r.primary_track_uuid }}" data-track-id="{{ r.primary_track_uuid }}">
+                        <span class="track-drag-handle material-symbols-outlined text-muted me-2" style="cursor: grab;">drag_indicator</span>
+                        <div class="flex-grow-1">
+                            <a href="{{ r.track_link }}">
+                                <strong>{{ r.title }}</strong>
+                                <span class="material-symbols-outlined small align-middle">edit</span>
+                            </a>
+                            {% if is_published != 1 %}
+                            <span class="material-symbols-outlined text-danger ms-2" style="cursor: pointer;" onclick="remove_track('{{ r.primary_track_uuid }}','{{ r.track_link }}')" title="Remove">delete</span>
+                            {% endif %}
+                            <br>
+                            <audio controls style="height: 28px; max-width: 100%;">
+                                <source src="{{ r.audio_path }}" type="audio/wav">
+                                Your browser does not support the audio element.
+                            </audio>
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+        <br>
+    </div>
+</div>
+
+{% endblock rl_content_page %}

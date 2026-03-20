@@ -1,0 +1,1113 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <!-- Primary Meta Tags -->
+  <title>{{ settings.WEBAPP_NAME }}</title>
+  <link rel="icon" type="image/x-icon" href="/static/img/{{ settings.LOGO.light }}" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+  <meta name="title" content="{{ settings.WEBAPP_NAME }} - Admin Dashboard" />
+  <meta name="author" content="{{ settings.WEBAPP_NAME }}" />
+  <meta name="description" content="{{ settings.WEBAPP_NAME }} Royalties Site" />
+  <meta name="keywords"
+    content="coin, digital, coin digital, coin digital login, music, releases, indian music, tracks, royalty, royalties" />
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+  <!-- Sweet Alert -->
+  <link type="text/css" href="/static/volt/vendor/sweetalert2/dist/sweetalert2.min.css" rel="stylesheet" />
+
+  <!-- Notyf -->
+  <link type="text/css" href="/static/volt/vendor/notyf/notyf.min.css" rel="stylesheet" />
+
+  <!-- Full Calendar  -->
+  <link type="text/css" href="/static/volt/vendor/fullcalendar/main.min.css" rel="stylesheet" />
+
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+
+  <!-- UnderScoreJS -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/underscore.js/1.8.3/underscore-min.js"></script>
+
+  <link rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+
+  <!-- Apex Charts -->
+  <link type="text/css" href="/static/volt/vendor/apexcharts/dist/apexcharts.css" rel="stylesheet" />
+
+  <!-- Dropzone -->
+  <link type="text/css" href="/static/volt/vendor/dropzone/dist/min/dropzone.min.css" rel="stylesheet" />
+
+  <!-- Choices  -->
+  <link type="text/css" href="/static/volt/vendor/choices.js/public/assets/styles/choices.min.css" rel="stylesheet" />
+
+  <!-- Leaflet JS -->
+  <link type="text/css" href="/static/volt/vendor/leaflet/dist/leaflet.css" rel="stylesheet" />
+
+  <!-- Volt CSS -->
+  <link type="text/css" href="/static/volt/css/volt.css" rel="stylesheet" />
+
+
+  <!-- NOTICE: You can use the _analytics.html partial to include production code specific code & trackers -->
+</head>
+<style>
+  .bg-warning {
+    background-image: linear-gradient(#FFEED6, #FCE5C6) !important;
+  }
+
+  .material-symbols-outlined {
+    vertical-align: sub;
+  }
+</style>
+
+<link href="https://cdn.datatables.net/v/dt/dt-1.13.6/datatables.min.css" rel="stylesheet">
+
+<script src="https://cdn.datatables.net/v/dt/dt-1.13.6/datatables.min.js"></script>
+
+<script src="/static/volt/vendor/simple-datatables/dist/umd/simple-datatables.js"></script>
+<!-- Core -->
+<script type="text/javascript" src="https://code.jquery.com/jquery-3.5.1.js"></script>
+
+<script src="/static/js/core/jquery.min.js"></script>
+<script src="/static/volt/vendor/@popperjs/core/dist/umd/popper.min.js"></script>
+<script src="/static/volt/vendor/bootstrap/dist/js/bootstrap.min.js"></script>
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+<!-- Vendor JS -->
+<script src="/static/volt/vendor/onscreen/dist/on-screen.umd.min.js"></script>
+
+<!-- Slider -->
+<script src="/static/volt/vendor/nouislider/distribute/nouislider.min.js"></script>
+
+<!-- Smooth scroll -->
+<script src="/static/volt/vendor/smooth-scroll/dist/smooth-scroll.polyfills.min.js"></script>
+
+<!-- Count up -->
+<script src="/static/volt/vendor/countup.js/dist/countUp.umd.js"></script>
+
+<!-- Apex Charts -->
+<script src="/static/volt/vendor/apexcharts/dist/apexcharts.min.js"></script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.1/Chart.min.js"></script>
+
+<!-- Datepicker -->
+<script src="/static/volt/vendor/vanillajs-datepicker/dist/js/datepicker.min.js"></script>
+
+<!-- Sweet Alerts 2 -->
+<script src="/static/volt/vendor/sweetalert2/dist/sweetalert2.min.js"></script>
+
+<!-- Moment JS -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.27.0/moment.min.js"></script>
+
+<!-- Vanilla JS Datepicker -->
+<script src="/static/volt/vendor/vanillajs-datepicker/dist/js/datepicker.min.js"></script>
+
+<!-- Full Calendar -->
+<script src="/static/volt/vendor/fullcalendar/main.min.js"></script>
+
+<!-- Dropzone -->
+<script src="/static/volt/vendor/dropzone/dist/min/dropzone.min.js"></script>
+
+<!-- Choices.js -->
+<script src="/static/volt/vendor/choices.js/public/assets/scripts/choices.min.js"></script>
+
+<!-- Notyf -->
+<script src="/static/volt/vendor/notyf/notyf.min.js"></script>
+
+<!-- Mapbox & Leaflet.js -->
+<script src="/static/volt/vendor/leaflet/dist/leaflet.js"></script>
+
+<!-- SVG Map -->
+<script src="/static/volt/vendor/svg-pan-zoom/dist/svg-pan-zoom.min.js"></script>
+<script src="/static/volt/vendor/svgmap/dist/svgMap.min.js"></script>
+
+<!-- Simplebar -->
+<script src="/static/volt/vendor/simplebar/dist/simplebar.min.js"></script>
+
+<!-- Sortable Js -->
+<script src="/static/volt/vendor/sortablejs/Sortable.min.js"></script>
+
+<!-- File Upload Loader Js -->
+<script src="/static/volt/js/upload-file-loader.js"></script>
+
+<!-- Github buttons -->
+<script async defer src="https://buttons.github.io/buttons.js"></script>
+
+<!-- Volt JS -->
+<script src="/static/volt/js/volt.js"></script>
+<script>
+  var loading = [];
+  var loading_text = {};
+  function set_loading(id, persist = true, padding = 5, height = "2rem", width = "2rem") {
+    var index = loading.indexOf(id);
+    if (index > -1) {
+      loading.splice(index, 1);
+      $(id).html(loading_text[id])
+    } else {
+      if (persist) {
+        loading.push(id);
+        loading_text[id] = $(id).html()
+      }
+      s = `<div class="text-center"><div class="spinner-border m-${padding}" role="status" style="width: ${width}; height: ${height};"><span class="sr-only"></span></div></div>`;
+      $(id).html(s);
+    }
+  }
+</script>
+
+<!-- MODAL FOR CREATE RELEASE INPUT -->
+<script>
+  $(document).ready(function () {
+    $(window).keydown(function (event) {
+      if (event.keyCode == 13 && $('#createReleaseModal').hasClass('show')) {
+        event.preventDefault();
+        return false;
+      }
+    });
+  });
+</script>
+<script>
+  function onClickCreateRelease() {
+    set_loading("#in_modal_create_button", true, 0);
+    var new_release_name = document.getElementById("new_release_name").value;
+    
+    // Check if name contains only allowed characters: alphanumeric, space, |, (, ), #, &, -, ', ,
+    const allowedCharsRegex = /^[a-zA-Z0-9\s|()#&\-',.]+$/;
+    
+    if (new_release_name.trim() != "") {
+      if (!allowedCharsRegex.test(new_release_name.trim())) {
+        set_loading("#in_modal_create_button", false, 0);
+        alert("Release name can only contain alphanumeric characters, spaces, and these special characters: | ( ) # & - ' , .");
+        return;
+      }
+      
+      var redirecting = false;
+      $.ajax({
+        type: "POST",
+        url: "/releases",
+        headers: { "X-Requested-With": "XMLHttpRequest" },
+        data: {
+          new_release_name: new_release_name.trim(),
+          csrfmiddlewaretoken: document.querySelector('[name=csrfmiddlewaretoken]') ? document.querySelector('[name=csrfmiddlewaretoken]').value : ''
+        },
+        dataType: 'json'
+      }).done(function (response) {
+        if (response && response.primary_uuid) {
+          redirecting = true;
+          window.location.replace("/releases/release_info/" + response.primary_uuid);
+          return;
+        }
+        set_loading("#in_modal_create_button", false, 0);
+        alert(response && response.message ? response.message : "Release could not be created. Please try again.");
+      }).fail(function (xhr, status, err) {
+        set_loading("#in_modal_create_button", false, 0);
+        var msg = "Request failed. Please try again.";
+        if (xhr && xhr.responseJSON && xhr.responseJSON.message) {
+          msg = xhr.responseJSON.message;
+        } else if (xhr && xhr.responseText) {
+          try {
+            var o = JSON.parse(xhr.responseText);
+            if (o && o.message) msg = o.message;
+          } catch (e) {}
+        }
+        if (xhr && xhr.status === 404) {
+          msg = "Session may have expired. Please refresh the page and log in again.";
+        } else if (xhr && (xhr.status === 401 || xhr.status === 403)) {
+          msg = "You are not authorized. Please log in again.";
+        }
+        alert(msg);
+      }).always(function () {
+        if (!redirecting) {
+          set_loading("#in_modal_create_button", false, 0);
+        }
+      });
+    }
+    else {
+      set_loading("#in_modal_create_button", false, 0);
+      alert("Please provide valid release name!");
+    }
+  }
+</script>
+
+<!-- Utility method for sending beautiful alerts -->
+<script>
+  function sendSweetAlert(type, title, text) {
+    const swalWithBootstrapButtons = Swal.mixin({
+          customClass: {
+              confirmButton: 'btn btn-primary',
+              cancelButton: 'btn btn-gray'
+          },
+          buttonsStyling: false
+      });
+
+    if (type === 'error') {
+      swalWithBootstrapButtons.fire({
+        icon: 'error',
+        title: title,
+        text: text,
+      })
+    }
+    else if (type === 'warning') {
+
+      swalWithBootstrapButtons.fire(
+        title,
+        text,
+        'warning'
+      )
+    }
+    else if (type === 'success') {
+
+      swalWithBootstrapButtons.fire({
+        icon: 'success',
+        title: title,
+        text: text,
+        showConfirmButton: true,
+        timer: 1500
+      })
+    }
+    else if (type === 'info') {
+
+      swalWithBootstrapButtons.fire(
+        title,
+        text,
+        'info'
+      )
+    }
+    else if (type === 'basic') {
+      swalWithBootstrapButtons.fire(
+        title,
+        text
+      )
+    }
+
+  }
+
+</script>
+
+<body>
+
+
+  <!-- NOTICE: You can use the _analytics.html partial to include production code specific code & trackers -->
+  <!-- Desktpp Navigation -->
+  <nav class="navbar navbar-dark navbar-theme-primary px-4 col-12 d-lg-none">
+    <a class="navbar-brand me-lg-5" href="../../main_page">
+      <img class="navbar-brand-dark" src="/static/img/{{ settings.LOGO.light }}" style="width:75px;height:85px;"
+        alt="{{ settings.WEBAPP_NAME }} logo" />
+      <!-- <img class="navbar-brand-light" src="/static/img/{{ settings.LOGO.normal }}" alt="{{ settings.WEBAPP_NAME }} logo" /> -->
+    </a>
+    <div class="d-flex align-items-center">
+      <button class="navbar-toggler d-lg-none collapsed" type="button" data-bs-toggle="collapse"
+        data-bs-target="#sidebarMenu" aria-controls="sidebarMenu" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+    </div>
+  </nav>
+  <!-- Mobile View navigation -->
+  <nav id="sidebarMenu" class="sidebar d-lg-block bg-gray-800 text-white collapse" data-simplebar>
+    <script src="/static/volt/js/sidebar.js"></script>
+
+    <div class="sidebar-inner px-4 pt-3">
+      <div class="user-card d-flex d-md-none justify-content-between justify-content-md-center pb-4">
+        <div class="d-flex align-items-center">
+          <div class="d-block">
+            <h2 class="h5 mb-3">Hi, {{ request.user }}</h2>
+          </div>
+        </div>
+        <div class="collapse-close d-md-none">
+          <a href="#sidebarMenu" data-bs-toggle="collapse" data-bs-target="#sidebarMenu" aria-controls="sidebarMenu"
+            aria-expanded="true" aria-label="Toggle navigation">
+            <svg class="icon icon-xs" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+              <path fill-rule="evenodd"
+                d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                clip-rule="evenodd"></path>
+            </svg>
+          </a>
+        </div>
+      </div>
+      {% if requesting_user_role == 'admin' %}
+      <ul class="nav flex-column pt-3 pt-md-0">
+        <li class="text-center">
+          <a href="../../main_page" class="text-center">
+            <span class="">
+              <img src="/static/img/{{ settings.LOGO.light }}" height="90" width="80"
+                alt="{{ settings.WEBAPP_NAME }} Logo" />
+            </span>
+          </a>
+        </li>
+        <li role="separator" class="dropdown-divider mt-4 mb-3 border-gray-700"></li>
+        <li class="nav-item {% if 'dashboard' in request.path %} active {% endif %}">
+          <a href="/dashboard" class="nav-link d-flex align-items-center justify-content-between">
+            <span>
+              <span class="sidebar-icon">
+                <span class="material-symbols-outlined">
+                  bar_chart_4_bars
+                </span>
+              </span>
+              <span class="sidebar-text">Dashboard</span>
+            </span>
+          </a>
+        </li>
+        <li class="nav-item {% if request.path == '/main_page' %} active {% endif %}">
+          <a href="/main_page" class="nav-link d-flex align-items-center justify-content-between">
+            <span>
+              <span class="sidebar-icon">
+                <span class="material-symbols-outlined">
+                  dashboard
+                </span>
+              </span>
+              <span class="sidebar-text">Royalties</span>
+            </span>
+          </a>
+        </li>
+        <li class="nav-item {% if 'analytics' in request.path %} active {% endif %}">
+          <a href="/analytics" class="nav-link d-flex align-items-center justify-content-between">
+            <span>
+              <span class="sidebar-icon">
+                <span class="material-symbols-outlined">
+                  analytics
+                </span>
+              </span>
+              <span class="sidebar-text">Analytics</span>
+            </span>
+          </a>
+        </li>
+        <li class="nav-item {% if request.path == '/payments' %} active {% endif %}">
+          <a href="/payments" class="nav-link">
+            <span class="sidebar-icon">
+              <span class="material-symbols-outlined">
+                paid
+              </span>
+            </span>
+            <span class="sidebar-text">Payments</span>
+          </a>
+        </li>
+        <li class="nav-item {% if request.path == '/balance_reports/' %} active {% endif %}">
+          <a href="/balance_reports" class="nav-link">
+            <span class="sidebar-icon">
+              <span class="material-symbols-outlined">
+                lab_profile
+              </span>
+            </span>
+            <span class="sidebar-text">Balance Reports</span>
+          </a>
+        </li>
+        <li role="separator" class="dropdown-divider mt-4 mb-3 border-gray-700"></li>
+        <li class="nav-item {% if 'releases/artists' in request.path %} active {% endif %}">
+          <a href="/releases/artists/" class="nav-link d-flex align-items-center justify-content-between">
+            <span>
+              <span class="sidebar-icon">
+                <span class="material-symbols-outlined">
+                  artist
+                </span>
+              </span>
+              <span class="sidebar-text">Artists</span>
+            </span>
+          </a>
+        </li>
+        <li class="nav-item {% if 'releases/split' in request.path %} active {% endif %}">
+          <a href="/releases/split/" class="nav-link d-flex align-items-center justify-content-between">
+            <span>
+              <span class="sidebar-icon">
+                <span class="material-symbols-outlined">
+                  payments
+                </span>
+              </span>
+              <span class="sidebar-text">Split Royalty</span>
+            </span>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a href="#" data-bs-toggle="modal" data-bs-target="#createReleaseModal"
+            class="nav-link d-flex align-items-center justify-content-between">
+            <span>
+              <span data-bs-toggle="modal" data-bs-target="#createReleaseModal" class="sidebar-icon">
+                <span data-bs-toggle="modal" data-bs-target="#createReleaseModal" class="material-symbols-outlined">
+                  playlist_add_circle
+                </span>
+              </span>
+              <span data-bs-toggle="modal" data-bs-target="#createReleaseModal" class="sidebar-text">New Release</span>
+            </span>
+          </a>
+        </li>
+        <li class="nav-item {% if 'delivered' in request.path %} active {% endif %}">
+          <a href="/releases/delivered/" class="nav-link d-flex align-items-center justify-content-between">
+            <span>
+              <span class="sidebar-icon">
+                <span class="material-symbols-outlined">
+                  published_with_changes
+                </span>
+              </span>
+              <span class="sidebar-text">Delivered</span>
+            </span>
+          </a>
+        </li>
+        <li class="nav-item {% if 'pending_approval' in request.path %} active {% endif %}">
+          <a href="/releases/pending_approval/" class="nav-link d-flex align-items-center justify-content-between">
+            <span>
+              <span class="sidebar-icon">
+                <span class="material-symbols-outlined">
+                  schedule
+                </span>
+              </span>
+              <span class="sidebar-text">Pending Approval</span>
+            </span>
+          </a>
+        </li>
+        <li
+          class="nav-item {% if '/releases' in request.path and 'delivered' not in request.path and 'pending_approval' not in request.path and 'artists' not in request.path %} active {% endif %}">
+          <a href="/releases" class="nav-link d-flex align-items-center justify-content-between">
+            <span>
+              <span class="sidebar-icon">
+                <span class="material-symbols-outlined">
+                  music_note
+                </span>
+              </span>
+              <span class="sidebar-text">Draft</span>
+            </span>
+          </a>
+        </li>
+        <!-- add more -->
+        <li role="separator" class="dropdown-divider mt-4 mb-3 border-gray-700"></li>
+        <li class="nav-item {% if request.path == '/manage_users' or 'edit_user' in request.path %} active {% endif %}">
+          <a href="/manage_users" class="nav-link">
+            <span class="sidebar-icon">
+              <span class="material-symbols-outlined">
+                manage_accounts
+              </span>
+            </span>
+            <span class="sidebar-text">Manage Users</span>
+          </a>
+        </li>
+        <li class="nav-item {% if request.path == '/insert_user' %} active {% endif %}">
+          <a href="/insert_user" class="nav-link">
+            <span class="sidebar-icon">
+              <span class="material-symbols-outlined">
+                person_add
+              </span>
+            </span>
+            <span class="sidebar-text">Create User</span>
+          </a>
+        </li>
+        <li role="separator" class="dropdown-divider mt-4 mb-3 border-gray-700"></li>
+        <li class="nav-item {% if 'requests' in request.path %} active {% endif %}">
+          <a href="/requests" class="nav-link">
+            <span class="sidebar-icon">
+              <span class="material-symbols-outlined">
+                bug_report
+              </span>
+            </span>
+            <span class="sidebar-text">Requests</span>
+          </a>
+        </li>
+        <li class="nav-item {% if request.path == '/change_password/' %} active {% endif %}">
+          <a href="/change_password" class="nav-link">
+            <span class="sidebar-icon">
+              <span class="material-symbols-outlined">
+                password
+              </span>
+            </span>
+            <span class="sidebar-text">Change Password</span>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a href="/logout_view" class="nav-link">
+            <span class="sidebar-icon">
+              <span class="material-symbols-outlined">
+                logout
+              </span>
+            </span>
+            <span class="sidebar-text">Logout</span>
+          </a>
+        </li>
+      </ul>
+      {% endif %}
+      {% if requesting_user_role == 'intermediate' %}
+      <ul class="nav flex-column pt-3 pt-md-0">
+        <li class="nav-item">
+          <a href="../../main_page" class="nav-link d-flex align-items-center">
+            <span class="sidebar-icon">
+              <img src="/static/img/{{ settings.LOGO.light }}" height="90" width="80"
+                alt="{{ settings.WEBAPP_NAME }} Logo" />
+            </span>
+            <span class="mt-1 sidebar-text"><b>{{ settings.WEBAPP_NAME }}</b></span>
+          </a>
+        </li>
+        <li role="separator" class="dropdown-divider mt-4 mb-3 border-gray-700"></li>
+        <li class="nav-item {% if 'dashboard' in request.path %} active {% endif %}">
+          <a href="/dashboard" class="nav-link d-flex align-items-center justify-content-between">
+            <span>
+              <span class="sidebar-icon">
+                <span class="material-symbols-outlined">
+                  bar_chart_4_bars
+                </span>
+              </span>
+              <span class="sidebar-text">Dashboard</span>
+            </span>
+          </a>
+        </li>
+        <li class="nav-item {% if request.path == '/main_page' %} active {% endif %}">
+          <a href="/main_page" class="nav-link d-flex align-items-center justify-content-between">
+            <span>
+              <span class="sidebar-icon">
+                <span class="material-symbols-outlined">
+                  dashboard
+                </span>
+              </span>
+              <span class="sidebar-text">Royalties</span>
+            </span>
+          </a>
+        </li>
+        <li class="nav-item {% if 'analytics' in request.path %} active {% endif %}">
+          <a href="/analytics" class="nav-link d-flex align-items-center justify-content-between">
+            <span>
+              <span class="sidebar-icon">
+                <span class="material-symbols-outlined">
+                  analytics
+                </span>
+              </span>
+              <span class="sidebar-text">Analytics</span>
+            </span>
+          </a>
+        </li>
+        <li class="nav-item {% if request.path == '/payments' %} active {% endif %}">
+          <a href="/payments" class="nav-link">
+            <span class="sidebar-icon">
+              <span class="material-symbols-outlined">
+                paid
+              </span>
+            </span>
+            <span class="sidebar-text">Payments</span>
+          </a>
+        </li>
+        <li role="separator" class="dropdown-divider mt-4 mb-3 border-gray-700"></li>
+        <li class="nav-item {% if 'releases/artists' in request.path %} active {% endif %}">
+          <a href="/releases/artists/" class="nav-link d-flex align-items-center justify-content-between">
+            <span>
+              <span class="sidebar-icon">
+                <span class="material-symbols-outlined">
+                  artist
+                </span>
+              </span>
+              <span class="sidebar-text">Artists</span>
+            </span>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a href="#" data-bs-toggle="modal" data-bs-target="#createReleaseModal"
+            class="nav-link d-flex align-items-center justify-content-between">
+            <span>
+              <span data-bs-toggle="modal" data-bs-target="#createReleaseModal" class="sidebar-icon">
+                <span data-bs-toggle="modal" data-bs-target="#createReleaseModal" class="material-symbols-outlined">
+                  playlist_add_circle
+                </span>
+              </span>
+              <span data-bs-toggle="modal" data-bs-target="#createReleaseModal" class="sidebar-text">New Release</span>
+            </span>
+          </a>
+        </li>
+        <li class="nav-item {% if 'delivered' in request.path %} active {% endif %}">
+          <a href="/releases/delivered/" class="nav-link d-flex align-items-center justify-content-between">
+            <span>
+              <span class="sidebar-icon">
+                <span class="material-symbols-outlined">
+                  published_with_changes
+                </span>
+              </span>
+              <span class="sidebar-text">Delivered</span>
+            </span>
+          </a>
+        </li>
+        <li
+          class="nav-item {% if '/releases' in request.path and 'delivered' not in request.path and 'pending_approval' not in request.path and 'artists' not in request.path %} active {% endif %}">
+          <a href="/releases" class="nav-link d-flex align-items-center justify-content-between">
+            <span>
+              <span class="sidebar-icon">
+                <span class="material-symbols-outlined">
+                  music_note
+                </span>
+              </span>
+              <span class="sidebar-text">Draft</span>
+            </span>
+          </a>
+        </li>
+        <li role="separator" class="dropdown-divider mt-4 mb-3 border-gray-700"></li>
+        <li class="nav-item {% if request.path == '/manage_users' or 'edit_user' in request.path %} active {% endif %}">
+          <a href="/manage_users" class="nav-link">
+            <span class="sidebar-icon">
+              <span class="material-symbols-outlined">
+                manage_accounts
+              </span>
+            </span>
+            <span class="sidebar-text">Manage Users</span>
+          </a>
+        </li>
+        <li class="nav-item {% if request.path == '/insert_user' %} active {% endif %}">
+          <a href="/insert_user" class="nav-link">
+            <span class="sidebar-icon">
+              <span class="material-symbols-outlined">
+                person_add
+              </span>
+            </span>
+            <span class="sidebar-text">Create User</span>
+          </a>
+        </li>
+        <li role="separator" class="dropdown-divider mt-4 mb-3 border-gray-700"></li>
+        <li class="nav-item {% if 'requests' in request.path %} active {% endif %}">
+          <a href="/requests" class="nav-link">
+            <span class="sidebar-icon">
+              <span class="material-symbols-outlined">
+                bug_report
+              </span>
+            </span>
+            <span class="sidebar-text">Requests</span>
+          </a>
+        </li>
+        <li class="nav-item {% if request.path == '/change_password/' %} active {% endif %}">
+          <a href="/change_password" class="nav-link">
+            <span class="sidebar-icon">
+              <span class="material-symbols-outlined">
+                password
+              </span>
+            </span>
+            <span class="sidebar-text">Change Password</span>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a href="/logout_view" class="nav-link">
+            <span class="sidebar-icon">
+              <span class="material-symbols-outlined">
+                logout
+              </span>
+            </span>
+            <span class="sidebar-text">Logout</span>
+          </a>
+        </li>
+      </ul>
+      {% endif %}
+      {% if requesting_user_role == 'normal' %}
+      <ul class="nav flex-column pt-3 pt-md-0">
+        <li class="nav-item">
+          <a href="../../main_page" class="nav-link d-flex align-items-center">
+            <span class="sidebar-icon">
+              <img src="/static/img/{{ settings.LOGO.light }}" height="90" width="80"
+                alt="{{ settings.WEBAPP_NAME }} Logo" />
+            </span>
+            <span class="mt-1 sidebar-text"><b>{{ settings.WEBAPP_NAME }}</b></span>
+          </a>
+        </li>
+        <li role="separator" class="dropdown-divider mt-4 mb-3 border-gray-700"></li>
+        <li class="nav-item {% if 'dashboard' in request.path %} active {% endif %}">
+          <a href="/dashboard" class="nav-link d-flex align-items-center justify-content-between">
+            <span>
+              <span class="sidebar-icon">
+                <span class="material-symbols-outlined">
+                  bar_chart_4_bars
+                </span>
+              </span>
+              <span class="sidebar-text">Dashboard</span>
+            </span>
+          </a>
+        </li>
+        <li class="nav-item {% if 'royalty_stats' in request.path %} active {% endif %}">
+          <a href="/royalty_stats" class="nav-link d-flex align-items-center justify-content-between">
+            <span>
+              <span class="sidebar-icon">
+                <span class="material-symbols-outlined">
+                  dashboard
+                </span>
+              </span>
+              <span class="sidebar-text">Royalties</span>
+            </span>
+          </a>
+        </li>
+        <li class="nav-item {% if 'analytics' in request.path %} active {% endif %}">
+          <a href="/analytics" class="nav-link d-flex align-items-center justify-content-between">
+            <span>
+              <span class="sidebar-icon">
+                <span class="material-symbols-outlined">
+                  analytics
+                </span>
+              </span>
+              <span class="sidebar-text">Analytics</span>
+            </span>
+          </a>
+        </li>
+        <li class="nav-item {% if request.path == '/payments' %} active {% endif %}">
+          <a href="/payments" class="nav-link">
+            <span class="sidebar-icon">
+              <span class="material-symbols-outlined">
+                paid
+              </span>
+            </span>
+            <span class="sidebar-text">Payments</span>
+          </a>
+        </li>
+        <li class="nav-item {% if '/teams' in request.path %} active {% endif %}">
+          <a href="/teams" class="nav-link">
+            <span class="sidebar-icon">
+              <span class="material-symbols-outlined">
+                groups
+              </span>
+            </span>
+            <span class="sidebar-text">Teams</span>
+          </a>
+        </li>
+        <li class="nav-item {% if request.path == '/download_royalties' %} active {% endif %}">
+          <a href="/download_royalties" class="nav-link">
+            <span class="sidebar-icon">
+              <span class="material-symbols-outlined">
+                download
+              </span>
+            </span>
+            <span class="sidebar-text">Download Royalties</span>
+          </a>
+        </li>
+        <li role="separator" class="dropdown-divider mt-4 mb-3 border-gray-700"></li>
+        <li class="nav-item {% if 'releases/artists' in request.path %} active {% endif %}">
+          <a href="/releases/artists/" class="nav-link d-flex align-items-center justify-content-between">
+            <span>
+              <span class="sidebar-icon">
+                <span class="material-symbols-outlined">
+                  artist
+                </span>
+              </span>
+              <span class="sidebar-text">Artists</span>
+            </span>
+          </a>
+        </li>
+        <!-- Split Royalty Button -->
+        {% if request.user.split_royalties_enabled  %}
+        <li class="nav-item {% if 'releases/split' in request.path %} active {% endif %}">
+          <a href="/releases/split/" class="nav-link d-flex align-items-center justify-content-between">
+            <span>
+              <span class="sidebar-icon">
+                <span class="material-symbols-outlined">
+                  payments
+                </span>
+              </span>
+              <span class="sidebar-text">Split Royalty</span>
+            </span>
+          </a>
+        </li>
+        {% endif %}
+        <li class="nav-item">
+          <a href="#" data-bs-toggle="modal" data-bs-target="#createReleaseModal"
+            class="nav-link d-flex align-items-center justify-content-between">
+            <span>
+              <span data-bs-toggle="modal" data-bs-target="#createReleaseModal" class="sidebar-icon">
+                <span data-bs-toggle="modal" data-bs-target="#createReleaseModal" class="material-symbols-outlined">
+                  playlist_add_circle
+                </span>
+              </span>
+              <span data-bs-toggle="modal" data-bs-target="#createReleaseModal" class="sidebar-text">New Release</span>
+            </span>
+          </a>
+        </li>
+        <li class="nav-item {% if 'delivered' in request.path %} active {% endif %}">
+          <a href="/releases/delivered/" class="nav-link d-flex align-items-center justify-content-between">
+            <span>
+              <span class="sidebar-icon">
+                <span class="material-symbols-outlined">
+                  published_with_changes
+                </span>
+              </span>
+              <span class="sidebar-text">Delivered</span>
+            </span>
+          </a>
+        </li>
+        <li
+          class="nav-item {% if '/releases' in request.path and 'delivered' not in request.path and 'pending_approval' not in request.path and 'artists' not in request.path %} active {% endif %}">
+          <a href="/releases" class="nav-link d-flex align-items-center justify-content-between">
+            <span>
+              <span class="sidebar-icon">
+                <span class="material-symbols-outlined">
+                  music_note
+                </span>
+              </span>
+              <span class="sidebar-text">Draft</span>
+            </span>
+          </a>
+        </li>
+        <!-- add more -->
+        <li role="separator" class="dropdown-divider mt-4 mb-3 border-gray-700"></li>
+        <li class="nav-item {% if 'requests' in request.path %} active {% endif %}">
+          <a href="/requests" class="nav-link">
+            <span class="sidebar-icon">
+              <span class="material-symbols-outlined">
+                bug_report
+              </span>
+            </span>
+            <span class="sidebar-text">Requests</span>
+          </a>
+        </li>
+        <li class="nav-item {% if '/change_password' in request.path %} active {% endif %}">
+          <a href="/change_password" class="nav-link">
+            <span class="sidebar-icon">
+              <span class="material-symbols-outlined">
+                password
+              </span>
+            </span>
+            <span class="sidebar-text">Change Password</span>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a href="/logout_view" class="nav-link">
+            <span class="sidebar-icon">
+              <span class="material-symbols-outlined">
+                logout
+              </span>
+            </span>
+            <span class="sidebar-text">Logout</span>
+          </a>
+        </li>
+      </ul>
+      {% endif %}
+      {% if requesting_user_role == 'member' %}
+      <ul class="nav flex-column pt-3 pt-md-0">
+        <li class="nav-item">
+          <a href="../../main_page" class="nav-link d-flex align-items-center">
+            <span class="sidebar-icon">
+              <img src="/static/img/{{ settings.LOGO.light }}" height="90" width="80"
+                alt="{{ settings.WEBAPP_NAME }} Logo" />
+            </span>
+            <span class="mt-1 sidebar-text"><b>{{ settings.WEBAPP_NAME }}</b></span>
+          </a>
+        </li>
+        <li role="separator" class="dropdown-divider mt-4 mb-3 border-gray-700"></li>
+        <li class="nav-item {% if 'releases/artists' in request.path %} active {% endif %}">
+          <a href="/releases/artists/" class="nav-link d-flex align-items-center justify-content-between">
+            <span>
+              <span class="sidebar-icon">
+                <span class="material-symbols-outlined">
+                  artist
+                </span>
+              </span>
+              <span class="sidebar-text">Artists</span>
+            </span>
+          </a>
+        </li>
+
+        <li class="nav-item">
+          <a href="#" data-bs-toggle="modal" data-bs-target="#createReleaseModal"
+            class="nav-link d-flex align-items-center justify-content-between">
+            <span>
+              <span data-bs-toggle="modal" data-bs-target="#createReleaseModal" class="sidebar-icon">
+                <span data-bs-toggle="modal" data-bs-target="#createReleaseModal" class="material-symbols-outlined">
+                  playlist_add_circle
+                </span>
+              </span>
+              <span data-bs-toggle="modal" data-bs-target="#createReleaseModal" class="sidebar-text">New Release</span>
+            </span>
+          </a>
+        </li>
+        <li class="nav-item {% if 'delivered' in request.path %} active {% endif %}">
+          <a href="/releases/delivered/" class="nav-link d-flex align-items-center justify-content-between">
+            <span>
+              <span class="sidebar-icon">
+                <span class="material-symbols-outlined">
+                  published_with_changes
+                </span>
+              </span>
+              <span class="sidebar-text">Delivered</span>
+            </span>
+          </a>
+        </li>
+        <li
+          class="nav-item {% if '/releases' in request.path and 'delivered' not in request.path and 'pending_approval' not in request.path and 'artists' not in request.path %} active {% endif %}">
+          <a href="/releases" class="nav-link d-flex align-items-center justify-content-between">
+            <span>
+              <span class="sidebar-icon">
+                <span class="material-symbols-outlined">
+                  music_note
+                </span>
+              </span>
+              <span class="sidebar-text">Draft</span>
+            </span>
+          </a>
+        </li>
+        <!-- add more -->
+        <li role="separator" class="dropdown-divider mt-4 mb-3 border-gray-700"></li>
+        <li class="nav-item">
+          <a href="/logout_view" class="nav-link">
+            <span class="sidebar-icon">
+              <span class="material-symbols-outlined">
+                logout
+              </span>
+            </span>
+            <span class="sidebar-text">Logout</span>
+          </a>
+        </li>
+      </ul>
+      {% endif %}
+      {% if requesting_user_role == 'split_recipient' %}
+      <ul class="nav flex-column pt-3 pt-md-0">
+        <li class="nav-item">
+          <a href="../../main_page" class="nav-link d-flex align-items-center">
+            <span class="sidebar-icon">
+              <img src="/static/img/{{ settings.LOGO.light }}" height="90" width="80"
+                alt="{{ settings.WEBAPP_NAME }} Logo" />
+            </span>
+            <span class="mt-1 sidebar-text"><b>{{ settings.WEBAPP_NAME }}</b></span>
+          </a>
+        </li>
+        <li role="separator" class="dropdown-divider mt-4 mb-3 border-gray-700"></li>
+        <li class="nav-item {% if 'dashboard' in request.path %} active {% endif %}">
+          <a href="/dashboard" class="nav-link d-flex align-items-center justify-content-between">
+            <span>
+              <span class="sidebar-icon">
+                <span class="material-symbols-outlined">
+                  bar_chart_4_bars
+                </span>
+              </span>
+              <span class="sidebar-text">Dashboard</span>
+            </span>
+          </a>
+        </li>
+        <li class="nav-item {% if 'royalty_stats' in request.path or 'main_page' in request.path %} active {% endif %}">
+          <a href="/royalty_stats" class="nav-link d-flex align-items-center justify-content-between">
+            <span>
+              <span class="sidebar-icon">
+                <span class="material-symbols-outlined">
+                  dashboard
+                </span>
+              </span>
+              <span class="sidebar-text">Royalties</span>
+            </span>
+          </a>
+        </li>
+        <li class="nav-item {% if 'analytics' in request.path %} active {% endif %}">
+          <a href="/analytics" class="nav-link d-flex align-items-center justify-content-between">
+            <span>
+              <span class="sidebar-icon">
+                <span class="material-symbols-outlined">
+                  analytics
+                </span>
+              </span>
+              <span class="sidebar-text">Analytics</span>
+            </span>
+          </a>
+        </li>
+        <li class="nav-item {% if request.path == '/payments' %} active {% endif %}">
+          <a href="/payments" class="nav-link">
+            <span class="sidebar-icon">
+              <span class="material-symbols-outlined">
+                paid
+              </span>
+            </span>
+            <span class="sidebar-text">Payments</span>
+          </a>
+        </li>
+        <li class="nav-item {% if 'requests' in request.path %} active {% endif %}">
+          <a href="/requests" class="nav-link">
+            <span class="sidebar-icon">
+              <span class="material-symbols-outlined">
+                help
+              </span>
+            </span>
+            <span class="sidebar-text">Requests</span>
+          </a>
+        </li>
+        <li class="nav-item {% if '/change_password' in request.path %} active {% endif %}">
+          <a href="/change_password" class="nav-link">
+            <span class="sidebar-icon">
+              <span class="material-symbols-outlined">
+                password
+              </span>
+            </span>
+            <span class="sidebar-text">Change Password</span>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a href="/logout_view" class="nav-link">
+            <span class="sidebar-icon">
+              <span class="material-symbols-outlined">
+                logout
+              </span>
+            </span>
+            <span class="sidebar-text">Logout</span>
+          </a>
+        </li>
+      </ul>
+      {% endif %}
+    </div>
+  </nav>
+
+  <main class="content">
+    <nav class="navbar navbar-top navbar-expand navbar-dashboard navbar-dark ps-0 pe-2 pb-0">
+      <div class="container-fluid px-0">
+        <div class="d-flex justify-content-between w-100" id="navbarSupportedContent">
+          <!-- TODO Handle these -->
+
+          {% block nav_content %}
+          {% endblock nav_content %}
+
+          <!-- Navbar links -->
+          <ul class="navbar-nav align-items-center">
+            <li class="nav-item dropdown ms-lg-3">
+              <a class="nav-link dropdown-toggle pt-1 px-0" href="#" role="button" data-bs-toggle="dropdown"
+                aria-expanded="false">
+                <div class="media d-flex align-items-center">
+                  <div class="media-body ms-2 text-dark align-items-center d-none d-lg-block">
+                    <span class="mb-0 font-small fw-bold text-gray-900">{{ request.user }}</span>
+                  </div>
+                </div>
+              </a>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </nav>
+
+    <br><br>
+
+    <div class="modal fade" id="createReleaseModal" tabindex="-1" role="dialog" aria-labelledby="modal-default"
+      aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h2 class="h6 modal-title">Create Release</h2>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <label for="name_id">New Release Name: </label>
+            <div class="input-group">
+              <input type="text" placeholder="name" id="new_release_name" name="new_release_name" class="form-control"  pattern="[a-zA-Z0-9\s|()#&\-',.\"!?\[\]:\/\+\%\*]+"  title="Only alphanumeric characters, spaces, and these special characters are allowed: | ( ) # & - ' ,">
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" id="in_modal_create_button" class="btn btn-secondary"
+              onclick="onClickCreateRelease()">Create</button>
+            <button type="button" class="btn btn-link text-gray ms-auto" data-bs-dismiss="modal">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- Content Starts here -->
+    <div>{%block content %}
+      {% endblock content %}</div>
+
+
+    <footer class="bg-warning rounded shadow p-5 mb-4 mt-4">
+      <div class="row">
+        <div class="col-12 col-md-4 col-xl-6 mb-4 mb-md-0">
+          <p class="mb-0 text-center text-lg-start">
+            © 2019-<span class="current-year"></span>
+            <a class="text-primary fw-normal" href="#" target="_blank">{{ settings.WEBAPP_NAME }}</a>
+          </p>
+        </div>
+        <div class="col-12 col-md-8 col-xl-6 text-center text-lg-start">
+          <!-- List -->
+          <ul class="list-inline list-group-flush list-group-borderless text-md-end mb-0">
+            <li class="list-inline-item px-0 px-sm-2">
+              <img src="/static/img/{{ settings.LOGO.normal }}" height="100vw" width="100vw">
+            </li>
+          </ul>
+        </div>
+      </div>
+    </footer>
+
+
+  </main>
+
+</body>
+
+</html>

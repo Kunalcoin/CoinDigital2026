@@ -1,0 +1,640 @@
+{% extends 'volt_base.html' %}
+{% autoescape off %}
+{% block nav_content %}
+<style>
+  .dataTable-dropdown {
+    display: none;
+  }
+
+  .dataTable-pagination-list li:not(.pager) {
+    display: none;
+  }
+</style>
+<div class="d-flex align-items-center">
+  {% if requesting_user_role == "admin" and request_type == "all" %}
+  <button class="btn btn-gray-800 d-inline-flex align-items-center me-2" id="download_button_loader"
+    onclick="download_releases_report()">
+
+    <span class="material-symbols-outlined">
+      download
+    </span>
+    &nbsp Download Releases
+  </button>
+  {% endif %}
+</div>
+<script>
+  // Create file from binary encode
+  function generate_and_dowload_file_from_binary_contents(fileContent){
+    var blob = new Blob([fileContent], { type: 'application/octet-stream' });
+    // Create a temporary URL for the Blob
+    var url = window.URL.createObjectURL(blob);
+
+    // Create a download link and trigger the download
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'Report.csv';
+    document.body.appendChild(a);
+    a.click();
+
+    // Clean up the temporary URL
+    window.URL.revokeObjectURL(url);
+    console.log("Here")
+  }
+</script>
+<script>
+  function isJSONParseable(str) {
+    try {
+      var testIfJson = JSON.parse(str);
+      if (typeof testIfJson == "object") {
+        return true;
+      }
+      else {
+        return false;
+      }
+    } catch (error) {
+      return false;
+    }
+  }
+  function ConvertToFormattedString(jsonObj) {
+    var formattedString = '';
+    jsonObj = JSON.parse(jsonObj)
+    for (var key in jsonObj) {
+      if (jsonObj.hasOwnProperty(key)) {
+        var values = jsonObj[key].join(',');
+        formattedString += key + ':' + values + ' , ';
+      }
+    }
+
+    formattedString = formattedString.slice(0, -3);
+
+    return formattedString;
+  }
+  function ConvertToCSV(objArray) {
+    var array = typeof objArray != 'object' ? JSON.parse(objArray) : objArray;
+    var csvData = [];
+
+    for (var i = 0; i < array.length; i++) {
+      var csvRow = [];
+
+      for (var index in array[i]) {
+        var fieldValue = array[i][index];
+        if (isJSONParseable(fieldValue)) {
+          fieldValue = ConvertToFormattedString(fieldValue)
+        }
+        if (typeof fieldValue === 'string' && fieldValue.includes(',')) { }
+
+        csvRow.push(fieldValue);
+      }
+
+      csvData.push(csvRow);
+    }
+
+    var csvString = Papa.unparse(csvData); // Use PapaParse to convert array to CSV
+    return csvString;
+  }
+
+  function exportCSVFile(headers, items, fileTitle) {
+    if (headers) {
+      items.unshift(headers);
+    }
+    var jsonObject = JSON.stringify(items);
+    var csv = ConvertToCSV(jsonObject);
+    var exportedFilenmae = fileTitle + '.csv' || 'export.csv';
+    var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    if (navigator.msSaveBlob) {
+      navigator.msSaveBlob(blob, exportedFilenmae);
+    } else {
+      var link = document.createElement("a");
+      if (link.download !== undefined) {
+        var url = URL.createObjectURL(blob);
+        link.setAttribute("href", url);
+        link.setAttribute("download", exportedFilenmae);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+    }
+  }
+</script>
+<script>
+  function download_releases_report() {
+    $.ajax({
+      type: "POST",
+      url: "/releases/release_report",
+    }).then(function (response) {
+      if (response.report_error) {
+        sendSweetAlert('error', '', "Error downloading report");
+      }
+      else {
+        // Create a Blob from the base64-encoded CSV content
+        var fileContent = atob(response.my_csv);
+        generate_and_dowload_file_from_binary_contents(fileContent);
+      }
+    });
+  }
+</script>
+
+{% endblock nav_content %}
+{% block content %}
+<!-- MODAL FOR CREATE RELEASE INPUT -->
+<script>
+  $(document).ready(function () {
+    $(window).keydown(function (event) {
+      if (event.keyCode == 13) {
+        event.preventDefault();
+        return false;
+      }
+    });
+  });
+</script>
+<script>
+  function whitelist_and_claims() {
+    let data = $("#claims_releasing").val();
+    $.ajax({
+      type: 'GET',
+      url: '/releases/whitelist/' + data,
+      success: function(response) {
+        sendSweetAlert('info', 'Whitelist and Claims Releasing', response.message);
+      },
+      error: function(jqXHR, textStatus, errorThrown) {
+        alert(errorThrown);
+      }
+    });
+  }
+</script>
+{% if message %}
+<div class="alert alert-secondary">
+  {{ message }}
+</div>
+{% endif %}
+<div class="row">
+  <div class="col-12 mb-4">
+    {% if requesting_user_role == "admin" and request_type == "all" %}
+    <div class="card border-0 shadow components-section">
+      <div class="card-header card-header-primary">
+        <h3 class="card-title">Upload Releases
+          <span class="material-symbols-outlined" style="cursor: pointer;" onclick="showFileUploadInfo(2)">
+            info
+          </span>
+        </h3>
+      </div>
+      <div class="card-body table-responsive">
+        <form action="/releases/upload_releases" method="post" enctype="multipart/form-data" id="form_1">
+          {%csrf_token%}
+          <input class="form-control" type="file" id="validatedCustomFile" required name="releases_file" accept=".xlsx">
+          <div class="progress">
+            <div id="progressBar_1" class="progress-bar" role="progressbar_1" aria-valuenow="0" aria-valuemin="0"
+              aria-valuemax="100" style="width: 0%;">
+              0%
+            </div>
+          </div>
+          <div class="col-md-2">
+            <button type="submit" class="btn btn-secondary">Upload</button>
+          </div>
+        </form>
+      </div>
+    </div>
+    <br>
+    {% endif %}
+
+    {% if requesting_user_role == 'admin' and request_type != 'all' %}
+    <div class="card border-0 shadow components-section">
+      <div class="card-header card-header-primary">
+        <h3 class="card-title">UPC/ISRC Codes</h3>
+      </div>
+      <div class="card-body">
+        <div class="row">
+          <br>
+          <div class="col-lg-4 col-md-4 col-sm-12 col-xs-12 mb-4">
+            <div id="upc_table_parent" class="table-responsive">
+            </div>
+          </div>
+          <br>
+          <div class="col-lg-4 col-md-4 col-sm-12 col-xs-12 mb-4">
+            <div id="isrc_table_parent" class="table-responsive">
+            </div>
+          </div>
+          <div class="col-lg-4 col-md-4 col-sm-12 col-xs-12 mb-4">
+            <label>
+              Upload UPC/ISRC Codes:&nbsp;
+              <span class="material-symbols-outlined" style="cursor: pointer;" onclick="showFileUploadInfo(1)">
+                info
+              </span>
+            </label>
+            <form action="/releases/upload/codes/" method="post" enctype="multipart/form-data"
+              id="codes_file_uploader_form">
+              {% csrf_token %}
+              <input id="codes_file" name="codes_file" class="form-control" type="file" accept=".xlsx ">
+              <div class="row">
+                <div class="col-lg-6 col-md-6">
+                </div>
+                <div class="col-lg-6 col-md-6">
+                  <button type="submit" class="form-control btn btn-secondary">Upload</button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+    <br>
+    {% endif %}
+
+    {% if requesting_user_role == 'intermediate' and request_type != 'all' %}
+    <div class="row">
+        <div class="col">
+            <div  class="card">
+                <div class="card-header card-header-primary">
+                    <h3 class="card-title">Whitelist and Claims Releasing</h3>
+                </div>
+                <div class="card-body">
+                  <div class="row">
+                    <div class="col-md-11">
+                      <input type="text" id="claims_releasing" class="form-control"></input>
+                    </div>
+                    <div class="col-md-1">
+                      <button onclick="whitelist_and_claims()" class="btn btn-primary">Submit</button>
+                    </div>
+                  </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <br>
+    {% endif %}
+
+    <!-- Releases List Table Below -->
+    <div class="card border-0 shadow components-section">
+      <div class="card-header card-header-primary">
+        <div class="row">
+          <div class="col-lg-6 col-md-6">
+            {% if request_type == "all" %}
+            <h3 class="card-title">Releases</h3>
+            {% elif request_type == "pending_approval" %}
+            <h3 class="card-title">Pending for Approval</h3>
+            {% else %}
+            <h3 class="card-title">Published Releases</h3>
+            {% endif %}
+          </div>
+          <div class="col-lg-6 col-md-6" style="text-align: end;">
+            {% if requesting_user_role == "admin" %}
+            <button type="button" class="btn btn-outline-danger"  onclick="deSelectAllTrigger()">Remove all</button>
+            <button type="button" class="btn btn-outline-primary"  onclick="selectAllTrigger()">Select all</button>
+            <button type="button" class="btn btn-secondary"  onclick="downloadSelectedReleases()">Download Selected</button>
+            {% if request_type == "pending_approval" %}
+            <button type="button" class="btn btn-success" id="btn_approve_releases" onclick="approveSelectedReleases()">Approve Releases</button>
+            {% endif %}
+            {% endif %}
+          </div>
+        </div>
+
+      </div>
+      <div class="card-body" id="in_releases_table_card_body">
+        <div class="card-body table-responsive" id="table_releases_id">
+          <table id="data-table" class="hover row-border" style="background-color: #ffffff;cursor: pointer;">
+            <thead>
+              <tr>
+                {% if requesting_user_role == "admin" %}
+                <th>Download</th>
+                {% endif %}
+                <th>Cover Art</th>
+                <th>Title</th>
+                <th>Label</th>
+                <th>Genre</th>
+                <th>UPC</th>
+                <th>Format</th>
+                {% if request_type == 'delivered' %}
+                <th>Published On</th>
+                {% elif request_type == 'pending_approval' %}
+                <th>Release Date</th>
+                <th>Submitted</th>
+                {% else %}
+                <th>Release Date</th>
+                {% endif %}
+                <th>Status</th>
+                <th>Edit</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- Data will be dynamically inserted here -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  $(document).ready(function () {
+    $('#form_1').on('submit', function (event) {
+      event.preventDefault();
+      var formData = new FormData($('#form_1')[0]);
+      $('#progressBar_1').attr('aria-valuenow', 0).css('width', 0 + '%').text(0 + '%');
+      $("#error_royalty").css('display', 'none')
+      set_loading("#in_releases_table_card_body", true, 0);
+      $.ajax({
+        xhr: function () {
+          var xhr = new window.XMLHttpRequest();
+          xhr.upload.addEventListener('progress', function (e) {
+            if (e.lengthComputable) {
+              var percent = Math.round((e.loaded / e.total) * 100);
+              $('#progressBar_1').attr('aria-valuenow', percent).css('width', percent + '%').text(percent + '%');
+            }
+          });
+          return xhr;
+        },
+        type: 'POST',
+        url: '/releases/upload_releases',
+        data: formData,
+        processData: false,
+        contentType: false,
+        success: function (response) {
+          if (response.error) {
+            sendSweetAlert('error', '', response.error);
+            $("#error_upload_releases").css('display', 'block');
+            $("#error_upload_releases").html(response.error);
+            set_loading("#in_releases_table_card_body", true, 0);
+          }
+          if (response.success) {
+            sendSweetAlert('success', '', response.success);
+            $("#success_upload_releases").css('display', 'block');
+            $("#success_upload_releases").html(response.success);
+            window.location.reload();
+          }
+        }
+      })
+    });
+  });
+</script>
+<script>
+  var selectedRows = []; 
+  $(document).ready(function () {
+    var dataTable = new DataTable('#data-table', {
+      responsive: true,
+      "dom": 'frtip',
+      "asStripeClasses": [],
+      serverSide: true,
+      ajax: {
+        url: '/releases/paginated/' + "{{ request_type }}" + '/',
+        data: function (params) {
+          params.length = params.limit;
+          params.start = params.start || 0;
+          params['search[value]'] = $('#search-input').val();
+        }
+      },
+      columns: [
+        {% if requesting_user_role == "admin" %}
+        {
+          title: "Download",
+          data: "Download",
+          orderable: false,
+          searchable: false,
+          render: function (data) {
+            var checked = selectedRows.includes(data) ? 'checked' : '';
+            return '<input type="checkbox" class="row-select" data-upc="' + data + '" ' + checked + '>';
+          }
+        },
+        {% endif %}
+        {
+          title: "Cover Art",
+          data: "Cover Art",
+          render: function (data) {
+            data = '<img src="' + data + '" width="50" height="50" style="border-radius: 50%;">';
+            return data;
+          }
+        },
+        { data: 'Title' },
+        { data: 'Label' },
+        { data: 'Genre' },
+        { data: 'UPC' },
+        { data: 'Format' },
+        { data: 'ReleaseDate' },
+        {% if request_type == 'pending_approval' %}
+        { data: 'Submitted', title: 'Submitted' },
+        {% endif %}
+        { data: 'Status' },
+        {
+          title: "Edit",
+          data: "Edit",
+          render: function (data) {
+            data = '<a href="/releases/release_info/' + data + '"><span class="material-symbols-outlined" style="cursor:pointer;">edit</span></a>';
+            return data;
+          }
+        }
+      ],
+    });
+    // Handle checkbox selection
+    $('#data-table tbody').on('click', 'input.row-select', function () {
+      var checkbox = $(this);
+      var row = checkbox.closest('tr');
+      var upc = checkbox.data('upc');
+
+      if (checkbox.prop('checked')) {
+        // Row selected
+        selectedRows.push(upc);
+      } else {
+        // Row deselected
+        selectedRows = selectedRows.filter(function (item) {
+          return item !== upc;
+        });
+      }
+
+      // // Trigger the custom event with the selected UPC codes
+      // $(document).trigger('rowSelectionChanged', [selectedRows]);
+    });
+
+    // $(document).on('rowSelectionChanged', function (event, selectedRows) {
+    //   // Handle selected rows and their UPC codes here
+    //   console.log('Selected Rows:', selectedRows);
+    //   // Call your custom function with selectedRows as an argument
+    //   // yourCustomFunction(selectedRows);
+    // });
+    $('#search-input').on('keyup', function () {
+      dataTable.ajax.reload();
+    });
+  });
+</script>
+<script>
+  function get_isrc_codes() {
+    set_loading('#isrc_table_parent');
+    $.ajax({
+      type: "GET",
+      url: "/releases/codes/isrc/",
+    }).then(function (response) {
+      set_loading('#isrc_table_parent');
+      $("#isrc_table_parent").html(response.table);
+      var dataTableTracks = document.getElementById('remaining_isrc_datatable');
+      if (dataTableTracks) {
+        const dataTable = new simpleDatatables.DataTable(dataTableTracks, {
+          perPage: 5
+        });
+      }
+    });
+  }
+  function get_upc_codes() {
+    set_loading('#upc_table_parent');
+    $.ajax({
+      type: "GET",
+      url: "/releases/codes/upc/",
+    }).then(function (response) {
+      set_loading('#upc_table_parent');
+      $("#upc_table_parent").html(response.table);
+      var dataTableTracks = document.getElementById('remaining_upc_datatable');
+      if (dataTableTracks) {
+        const dataTable = new simpleDatatables.DataTable(dataTableTracks, {
+          perPage: 5
+        });
+      }
+    });
+  }
+  if ("{{ requesting_user_role }}" == "admin" && "{{ request_type }}" != "all") {
+    get_upc_codes();
+    get_isrc_codes();
+  }
+</script>
+
+<script>
+  $(document).ready(function () {
+    $('#codes_file_uploader_form').on('submit', function (event) {
+      event.preventDefault();
+      var formData = new FormData();
+      formData.append("codes_file", event.target[1].files[0])
+      $.ajax({
+        type: 'POST',
+        url: '/releases/upload/codes/',
+        data: formData,
+        processData: false,
+        contentType: false,
+        success: function (response) {
+          sendSweetAlert('success', '', response.message);
+          get_upc_codes();
+          get_isrc_codes();
+        },
+        error: function (jqXHR, textStatus, errorThrown) {
+          sendSweetAlert('error', '', errorThrown);
+        }
+      });
+    });
+  });
+</script>
+<script>
+  function showFileUploadInfo(param) {
+    var type = ""
+    if (param == 1) {
+      type = "codes"
+    } else {
+      type = "releases"
+    }
+    $.ajax({
+      type: 'GET',
+      url: '/files/uploaders/info/' + type,
+      success: function (response) {
+        sendSweetAlert('info', 'File Requirements', response.message);
+      },
+      error: function (jqXHR, textStatus, errorThrown) {
+        sendSweetAlert('error', '', errorThrown);
+      }
+    });
+  }
+</script>
+<script>
+  function selectAllTrigger() {
+    $(".row-select").prop("checked", true);
+    var records = $('.row-select');
+    records.each(function() {
+      if (!selectedRows.includes($(this).data('upc'))) {
+        selectedRows.push($(this).data('upc'))
+      }
+    });
+  }
+  function deSelectAllTrigger() {
+    $(".row-select").prop("checked", false);
+    var records = $('.row-select');
+    records.each(function() {
+      if (selectedRows.includes($(this).data('upc'))) {
+        var indexToRemove = selectedRows.indexOf($(this).data('upc'));
+        if (indexToRemove !== -1) {
+          selectedRows.splice(indexToRemove, 1);
+        }
+      }
+    });
+  }
+  function downloadSelectedReleases() {
+      if (selectedRows.length > 0) {
+          $.ajax({
+              type: "POST",
+              url: "/releases/release_report",
+              data: { 'selectedRows': selectedRows },
+          }).then(function (response) {
+              if (response.report_error) {
+                  alert("Error downloading report");
+              } else {
+                  // Create a Blob from the base64-encoded CSV content
+                  var fileContent = atob(response.my_csv);
+                  generate_and_dowload_file_from_binary_contents(fileContent);
+                  
+              }
+          });
+      } else {
+          sendSweetAlert('info', '', "Please select one or more rows to download");
+      }
+  }
+  function getCSRFToken() {
+      var match = document.cookie.match(new RegExp('(^| )csrftoken=([^;]+)'));
+      return match ? match[2] : (document.querySelector("[name=csrfmiddlewaretoken]") ? document.querySelector("[name=csrfmiddlewaretoken]").value : "");
+  }
+  function approveSelectedReleases() {
+      if (selectedRows.length === 0) {
+          sendSweetAlert('info', '', "Please select one or more releases to approve.");
+          return;
+      }
+      var btn = document.getElementById('btn_approve_releases');
+      if (btn) btn.disabled = true;
+      set_loading('#in_releases_table_card_body', true, 0);
+      var csrfToken = getCSRFToken();
+      $.ajax({
+          type: "POST",
+          url: "/releases/bulk_approve/",
+          contentType: "application/x-www-form-urlencoded; charset=UTF-8",
+          headers: csrfToken ? { "X-CSRFToken": csrfToken } : {},
+          data: $.param({ selectedRows: selectedRows }, true),
+          timeout: 300000,
+      }).then(function (response) {
+          set_loading('#in_releases_table_card_body', true, 0);
+          if (btn) btn.disabled = false;
+          if (response.approved > 0 || response.total > 0) {
+              var msg = response.message || (response.approved + " out of " + (response.total || response.approved + response.failed) + " delivered via API successfully.");
+              sendSweetAlert(response.failed > 0 ? 'warning' : 'success', '', msg);
+          } else {
+              sendSweetAlert('error', '', response.message || "No releases were approved.");
+              if (response.errors && response.errors.length) {
+                  sendSweetAlert('info', '', response.errors.map(function(e) { return (e.title || e.id) + ": " + (e.error || ""); }).join("\n"));
+              }
+          }
+          var dataTable = $('#data-table').DataTable();
+          if (dataTable && dataTable.ajax) dataTable.ajax.reload();
+      }).fail(function (xhr) {
+          set_loading('#in_releases_table_card_body', true, 0);
+          if (btn) btn.disabled = false;
+          var status = xhr.status;
+          var msg = (xhr.responseJSON && xhr.responseJSON.message) ? xhr.responseJSON.message : "";
+          if (!msg) {
+            if (status === 403) msg = "Only admin or staff can approve.";
+            else if (status === 400) msg = "Bad request. No releases selected?";
+            else if (status >= 500) msg = "Server error " + status + ". Check server logs.";
+            else if (status === 0 || status === undefined || status === null) msg = "Request failed (no response). Possible causes: timeout, connection reset, or server overload. Try approving 1 release at a time from each release's Preview & Distribute page.";
+            else msg = "Request failed. HTTP " + status;
+          }
+          var preview = (xhr.responseText || "").substring(0, 200);
+          if (preview && !xhr.responseJSON && msg.indexOf("Response:") < 0) msg += " Response: " + preview.replace(/\s+/g, " ").substring(0, 150);
+          sendSweetAlert('error', '', msg);
+          var dataTable = $('#data-table').DataTable();
+          if (dataTable && dataTable.ajax) dataTable.ajax.reload();
+      });
+  }
+</script>
+{% endblock content %}
+{% endautoescape %}

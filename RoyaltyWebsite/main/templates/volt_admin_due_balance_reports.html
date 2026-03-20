@@ -1,0 +1,170 @@
+{% extends 'volt_base.html' %}
+{% load static %}
+{% block content %}
+
+
+<div class="row">
+  <div class="col-12 mb-4">
+    <div class="card border-0 shadow components-section">
+      <div class="card-header card-header-primary">
+        <h3 class="card-title">Balance Reports</h3>
+      </div>
+      <div class="card-body" id="download_wrapper">
+        <button class="btn btn-secondary" onclick="download_due_reports()">
+          Download
+          <svg class="icon icon-xxs ms-2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd"
+              d="M2 9.5A3.5 3.5 0 005.5 13H9v2.586l-1.293-1.293a1 1 0 00-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 15.586V13h2.5a4.5 4.5 0 10-.616-8.958 4.002 4.002 0 10-7.753 1.977A3.5 3.5 0 002 9.5zm9 3.5H9V8a1 1 0 012 0v5z"
+              clip-rule="evenodd" />
+          </svg>
+
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="row">
+  <div class="col-12 mb-4">
+  <div class="card border-0 shadow components-section">
+    <div class="card-header card-header-primary">
+      <h3 class="card-title">Calculation Data Upload
+        <span class="material-symbols-outlined" style="cursor: pointer;" onclick="showFileUploadInfo(1)">
+          info
+        </span>
+      </h3>
+    </div>
+    <div class="card-body table-responsive">
+      <form enctype="multipart/form-data" id="form_1">
+        {%csrf_token%}
+        <label>Royalties</label>
+        <input class="form-control" type="file" id="validatedCustomFile" required name="calculation_royalties_file" accept=".xlsx">
+        <div class="progress">
+          <div id="progressBar_1" class="progress-bar" role="progressbar_1" aria-valuenow="0" aria-valuemin="0"
+            aria-valuemax="100" style="width: 0%;">
+            0%
+          </div>
+        </div>
+        <div class="col-md-2">
+          <button type="submit" class="btn btn-secondary">Upload Royalties</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  </div>
+</div>
+
+<script>
+  function ConvertToCSV(objArray) {
+    var array = typeof objArray != 'object' ? JSON.parse(objArray) : objArray;
+    var str = '';
+    for (var i = 0; i < array.length; i++) {
+      var line = '';
+      for (var index in array[i]) {
+        if (line != '') line += ','
+        line += array[i][index];
+      }
+      str += line + '\r\n';
+    }
+    return str;
+  }
+  function exportCSVFile(headers, items, fileTitle) {
+    if (headers) {
+      items.unshift(headers);
+    }
+    var jsonObject = JSON.stringify(items);
+    var csv = ConvertToCSV(jsonObject);
+    var exportedFilenmae = fileTitle + '.csv' || 'export.csv';
+    var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    if (navigator.msSaveBlob) {
+      navigator.msSaveBlob(blob, exportedFilenmae);
+    } else {
+      var link = document.createElement("a");
+      if (link.download !== undefined) {
+        var url = URL.createObjectURL(blob);
+        link.setAttribute("href", url);
+        link.setAttribute("download", exportedFilenmae);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+    }
+  }
+</script>
+<script>
+  function download_due_reports() {
+    set_loading("#download_wrapper")
+    $.ajax({
+      type: "POST",
+      url: "/balance_reports/",
+    }).then(function (response) {
+      set_loading("#download_wrapper")
+      if (response.report_error) {
+        sendSweetAlert('error', '', "Error downloading report");
+      }
+      else {
+        var keys = Object.keys(response.my_csv[0])
+        var headers = {}
+        keys.forEach(el => {
+          headers[el] = el
+        });
+        exportCSVFile(headers, response.my_csv, 'Report')
+      }
+    });
+  }
+</script>
+<script>
+    $(document).ready(function () {
+    $('#form_1').on('submit', function (event) {
+      event.preventDefault();
+      var formData = new FormData($('#form_1')[0]);
+      $('#progressBar_1').attr('aria-valuenow', 0).css('width', 0 + '%').text(0 + '%');
+      $("#error_royalty").css('display', 'none')
+      $.ajax({
+        xhr: function () {
+          var xhr = new window.XMLHttpRequest();
+          xhr.upload.addEventListener('progress', function (e) {
+            if (e.lengthComputable) {
+              var percent = Math.round((e.loaded / e.total) * 100);
+              $('#progressBar_1').attr('aria-valuenow', percent).css('width', percent + '%').text(percent + '%');
+            }
+          });
+          return xhr;
+        },
+        type: 'POST',
+        url: '/upload_calculation_royalties/',
+        data: formData,
+        processData: false,
+        contentType: false,
+        success: function (response) {
+          if (response.success) {
+            sendSweetAlert('success', '', response.success);
+          }
+          if (response.error) {
+            sendSweetAlert('error', '', response.error);
+          }
+        }
+      })
+    });
+  });
+</script>
+<script>
+  function showFileUploadInfo (param) {
+    var type = ""
+    if (param == 1) {
+      type = "royalties"
+    }
+    $.ajax({
+      type: 'GET',
+      url: '/files/uploaders/info/' + type,
+      success: function(response) {
+        sendSweetAlert('info', 'File Requirements', response.message);
+      },
+      error: function(jqXHR, textStatus, errorThrown) {
+        alert(errorThrown);
+      }
+    });
+  }
+</script>
+
+{% endblock content %}
