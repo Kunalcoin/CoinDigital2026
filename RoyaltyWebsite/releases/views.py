@@ -1,6 +1,8 @@
 import ast
 import base64
 import os
+import threading
+import time
 import traceback
 import wave
 from collections import defaultdict
@@ -22,6 +24,7 @@ from releases.models import (
     Metadata,
     Royalties,
     SplitReleaseRoyalty,
+    DistributionJob,
     ARTIST_ROLES,
 )
 from commons.sql_client import sql_client
@@ -30,6 +33,7 @@ from django.conf import settings
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from django.db import connection
+from django.db import close_old_connections
 from django.db.models import Q, Sum, Max
 from django.db.models.functions import Upper
 from django.http import HttpResponse, HttpResponseNotFound, JsonResponse
@@ -2114,6 +2118,185 @@ def ddex_takedown_apple_music(request, primary_uuid):
         "message": err or "Apple Music takedown failed.",
         "detail": detail,
     }, status=400)
+
+
+@csrf_exempt
+@login_required
+def ddex_deliver_all_stores(request, primary_uuid):
+    """Queue background job: deliver this release to all configured stores. Admin only."""
+    if request.user.role != CDUser.ROLES.ADMIN and not getattr(request.user, "is_staff", False):
+        return JsonResponse({"success": False, "message": "Only admin or staff can distribute to stores."}, status=403)
+    try:
+        release = Release.objects.get(pk=primary_uuid)
+    except Release.DoesNotExist:
+        return JsonResponse({"success": False, "message": "Release not found."}, status=404)
+    if (release.approval_status or "").strip() != APPROVED:
+        return JsonResponse({
+            "success": False,
+            "message": "Release must be approved before distribution. Approve the release first, then distribute.",
+        }, status=400)
+    job = _queue_distribution_job(release, DistributionJob.ACTION.DISTRIBUTE, request.user)
+    return JsonResponse({
+        "success": True,
+        "message": "Distribute to stores queued.",
+        "job_id": job.id,
+    })
+
+
+@csrf_exempt
+@login_required
+def ddex_takedown_all_stores(request, primary_uuid):
+    """Queue background job: takedown this release from all stores. Admin only."""
+    if request.user.role != CDUser.ROLES.ADMIN and not getattr(request.user, "is_staff", False):
+        return JsonResponse({"success": False, "message": "Only admin or staff can takedown from stores."}, status=403)
+    try:
+        release = Release.objects.get(pk=primary_uuid)
+    except Release.DoesNotExist:
+        return JsonResponse({"success": False, "message": "Release not found."}, status=404)
+    job = _queue_distribution_job(release, DistributionJob.ACTION.TAKEDOWN, request.user)
+    return JsonResponse({
+        "success": True,
+        "message": "Takedown from stores queued.",
+        "job_id": job.id,
+    })
+
+
+def _queue_distribution_job(release: Release, action: str, user: CDUser) -> DistributionJob:
+    existing = DistributionJob.objects.filter(
+        release=release,
+        action=action,
+        status__in=[DistributionJob.STATUS.QUEUED, DistributionJob.STATUS.RUNNING],
+    ).order_by("-id").first()
+    if existing:
+        return existing
+    job = DistributionJob.objects.create(
+        release=release,
+        requested_by=user,
+        action=action,
+        status=DistributionJob.STATUS.QUEUED,
+        message="Queued",
+    )
+    thread = threading.Thread(target=_run_distribution_job, args=(job.id,), daemon=True)
+    thread.start()
+    return job
+
+
+def _run_distribution_job(job_id: int) -> None:
+    import logging
+    log = logging.getLogger(__name__)
+    close_old_connections()
+    try:
+        job = DistributionJob.objects.select_related("release").get(pk=job_id)
+        release = job.release
+        job.status = DistributionJob.STATUS.RUNNING
+        job.started_at = timezone.now()
+        job.message = "Running"
+        job.save(update_fields=["status", "started_at", "message"])
+
+        if job.action == DistributionJob.ACTION.DISTRIBUTE:
+            from releases.audiomack_delivery import deliver_release_to_audiomack
+            from releases.gaana_delivery import deliver_release_to_gaana
+            from releases.tiktok_delivery import deliver_release_to_tiktok
+            from releases.merlin_bridge_delivery import deliver_release_to_merlin_bridge
+            ops = [
+                ("audiomack", lambda: deliver_release_to_audiomack(release)),
+                ("gaana", lambda: deliver_release_to_gaana(release)),
+                ("tiktok", lambda: deliver_release_to_tiktok(release)),
+                ("apple_music", lambda: deliver_release_to_merlin_bridge(release)),
+            ]
+        else:
+            from releases.audiomack_delivery import deliver_takedown_to_audiomack
+            from releases.gaana_delivery import deliver_takedown_to_gaana
+            from releases.tiktok_delivery import deliver_takedown_to_tiktok
+            from releases.merlin_bridge_delivery import deliver_takedown_to_merlin_bridge
+            ops = [
+                ("audiomack", lambda: deliver_takedown_to_audiomack(release)),
+                ("gaana", lambda: deliver_takedown_to_gaana(release)),
+                ("tiktok", lambda: deliver_takedown_to_tiktok(release)),
+                ("apple_music", lambda: deliver_takedown_to_merlin_bridge(release)),
+            ]
+
+        results = {}
+        for store_code, fn in ops:
+            started = time.time()
+            try:
+                ok, err, detail = fn()
+                results[store_code] = {
+                    "success": bool(ok),
+                    "message": (detail or {}).get("message") or ("" if ok else (err or "failed")),
+                    "detail": detail or {},
+                    "duration_seconds": round(time.time() - started, 2),
+                }
+            except Exception as e:
+                log.exception("Distribution job %s store %s failed: %s", job_id, store_code, e)
+                results[store_code] = {
+                    "success": False,
+                    "message": str(e),
+                    "detail": {},
+                    "duration_seconds": round(time.time() - started, 2),
+                }
+
+        success_count = sum(1 for r in results.values() if r.get("success"))
+        total = len(results)
+        if success_count == total:
+            status = DistributionJob.STATUS.SUCCESS
+            msg = "Completed successfully."
+        elif success_count == 0:
+            status = DistributionJob.STATUS.FAILED
+            msg = "All stores failed."
+        else:
+            status = DistributionJob.STATUS.PARTIAL
+            msg = f"Completed with partial success ({success_count}/{total})."
+
+        finished = timezone.now()
+        job.status = status
+        job.finished_at = finished
+        job.duration_seconds = round((finished - (job.started_at or finished)).total_seconds(), 2)
+        job.store_results = results
+        job.message = msg
+        job.save(update_fields=["status", "finished_at", "duration_seconds", "store_results", "message"])
+    except Exception as e:
+        log.exception("Distribution job %s failed unexpectedly: %s", job_id, e)
+        try:
+            job = DistributionJob.objects.get(pk=job_id)
+            finished = timezone.now()
+            job.status = DistributionJob.STATUS.FAILED
+            job.finished_at = finished
+            if job.started_at:
+                job.duration_seconds = round((finished - job.started_at).total_seconds(), 2)
+            job.message = str(e)
+            job.save(update_fields=["status", "finished_at", "duration_seconds", "message"])
+        except Exception:
+            pass
+    finally:
+        close_old_connections()
+
+
+@csrf_exempt
+@login_required
+def ddex_distribution_jobs(request, primary_uuid):
+    if request.user.role != CDUser.ROLES.ADMIN and not getattr(request.user, "is_staff", False):
+        return JsonResponse({"success": False, "message": "Only admin or staff can view delivery history."}, status=403)
+    try:
+        release = Release.objects.get(pk=primary_uuid)
+    except Release.DoesNotExist:
+        return JsonResponse({"success": False, "message": "Release not found."}, status=404)
+    jobs = DistributionJob.objects.filter(release=release).select_related("requested_by").order_by("-id")[:50]
+    data = []
+    for j in jobs:
+        data.append({
+            "id": j.id,
+            "action": j.action,
+            "status": j.status,
+            "message": j.message,
+            "requested_at": j.requested_at.isoformat() if j.requested_at else "",
+            "started_at": j.started_at.isoformat() if j.started_at else "",
+            "finished_at": j.finished_at.isoformat() if j.finished_at else "",
+            "duration_seconds": j.duration_seconds or 0,
+            "requested_by": (j.requested_by.email if j.requested_by else ""),
+            "store_results": j.store_results or {},
+        })
+    return JsonResponse({"success": True, "jobs": data})
 
 
 @csrf_exempt

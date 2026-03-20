@@ -315,6 +315,39 @@ class Release(models.Model):
         ]
 
 
+class DistributionJob(models.Model):
+    class ACTION(models.TextChoices):
+        DISTRIBUTE = "distribute", "Distribute to stores"
+        TAKEDOWN = "takedown", "Takedown from stores"
+
+    class STATUS(models.TextChoices):
+        QUEUED = "queued", "Queued"
+        RUNNING = "running", "Running"
+        SUCCESS = "success", "Success"
+        PARTIAL = "partial", "Partial"
+        FAILED = "failed", "Failed"
+
+    release = models.ForeignKey(Release, on_delete=models.CASCADE, related_name="distribution_jobs")
+    requested_by = models.ForeignKey(CDUser, on_delete=models.SET_NULL, null=True, blank=True)
+    action = models.CharField(max_length=20, choices=ACTION.choices)
+    status = models.CharField(max_length=20, choices=STATUS.choices, default=STATUS.QUEUED)
+    requested_at = models.DateTimeField(auto_now_add=True)
+    started_at = models.DateTimeField(null=True, blank=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+    duration_seconds = models.FloatField(default=0)
+    store_results = models.JSONField(default=dict, blank=True)
+    message = models.TextField(default="", blank=True)
+
+    class Meta:
+        verbose_name = "Distribution Job"
+        verbose_name_plural = "Distribution Jobs"
+        indexes = [
+            models.Index(fields=["release", "requested_at"]),
+            models.Index(fields=["status", "requested_at"]),
+            models.Index(fields=["action", "requested_at"]),
+        ]
+
+
 class Track(models.Model):
     # Static
     class EXPLICIT_LYRICS(models.TextChoices):

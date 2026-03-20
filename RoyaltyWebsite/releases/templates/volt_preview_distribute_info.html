@@ -180,6 +180,93 @@
             sendSweetAlert('error', '', msg);
         });
     }
+    function ddex_distribute_stores() {
+        set_loading("#btn_ddex_distribute_stores", true, 0, "1.5rem", "1.5rem");
+        $.ajax({
+            type: "POST",
+            url: "/releases/{{ primary_uuid }}/ddex-deliver-all-stores/",
+            headers: { "X-CSRFToken": getCSRFToken(), "Content-Type": "application/json" },
+            data: JSON.stringify({}),
+            timeout: 300000,
+        }).then(function (response) {
+            set_loading("#btn_ddex_distribute_stores", false, 0, "1.5rem", "1.5rem");
+            if (response.success) {
+                sendSweetAlert('success', '', (response.message || 'Distribute to stores queued.') + ' Job #' + (response.job_id || ''));
+                refreshDistributionJobs();
+            } else {
+                sendSweetAlert('error', '', response.message || 'Distribute to stores failed.');
+            }
+        }).fail(function (xhr) {
+            set_loading("#btn_ddex_distribute_stores", false, 0, "1.5rem", "1.5rem");
+            var msg = (xhr.responseJSON && xhr.responseJSON.message) ? xhr.responseJSON.message : (xhr.status === 0 || xhr.status === undefined ? 'Request timed out or network error.' : ('Request failed. (HTTP ' + xhr.status + ')'));
+            sendSweetAlert('error', '', msg);
+        });
+    }
+    function ddex_takedown_stores() {
+        set_loading("#btn_ddex_takedown_stores", true, 0, "1.5rem", "1.5rem");
+        $.ajax({
+            type: "POST",
+            url: "/releases/{{ primary_uuid }}/ddex-takedown-all-stores/",
+            headers: { "X-CSRFToken": getCSRFToken(), "Content-Type": "application/json" },
+            data: JSON.stringify({}),
+            timeout: 120000,
+        }).then(function (response) {
+            set_loading("#btn_ddex_takedown_stores", false, 0, "1.5rem", "1.5rem");
+            if (response.success) {
+                sendSweetAlert('success', '', (response.message || 'Takedown from stores queued.') + ' Job #' + (response.job_id || ''));
+                refreshDistributionJobs();
+            } else {
+                sendSweetAlert('error', '', response.message || 'Takedown from stores failed.');
+            }
+        }).fail(function (xhr) {
+            set_loading("#btn_ddex_takedown_stores", false, 0, "1.5rem", "1.5rem");
+            var msg = (xhr.responseJSON && xhr.responseJSON.message) ? xhr.responseJSON.message : (xhr.status === 0 || xhr.status === undefined ? 'Request timed out or network error.' : ('Request failed. (HTTP ' + xhr.status + ')'));
+            sendSweetAlert('error', '', msg);
+        });
+    }
+    function fmtDateTime(isoValue) {
+        if (!isoValue) return "-";
+        try { return new Date(isoValue).toLocaleString(); } catch (e) { return isoValue; }
+    }
+    function formatStoreResult(storeResults) {
+        if (!storeResults || Object.keys(storeResults).length === 0) return "-";
+        var out = [];
+        Object.keys(storeResults).forEach(function (k) {
+            var r = storeResults[k] || {};
+            out.push(k + ": " + (r.success ? "ok" : "failed"));
+        });
+        return out.join(" | ");
+    }
+    function refreshDistributionJobs() {
+        var body = $("#distribution_jobs_tbody");
+        if (!body.length) return;
+        $.ajax({
+            type: "GET",
+            url: "/releases/{{ primary_uuid }}/ddex-distribution-jobs/",
+            timeout: 20000,
+        }).then(function (response) {
+            if (!response.success) return;
+            var jobs = response.jobs || [];
+            if (!jobs.length) {
+                body.html('<tr><td colspan="8" class="text-muted">No delivery operations yet.</td></tr>');
+                return;
+            }
+            var rows = jobs.map(function (j) {
+                return '<tr>'
+                    + '<td>' + j.id + '</td>'
+                    + '<td>' + (j.action || '-') + '</td>'
+                    + '<td>' + (j.status || '-') + '</td>'
+                    + '<td>' + (j.requested_by || '-') + '</td>'
+                    + '<td>' + fmtDateTime(j.requested_at) + '</td>'
+                    + '<td>' + fmtDateTime(j.finished_at || j.started_at) + '</td>'
+                    + '<td>' + ((j.duration_seconds || 0) + 's') + '</td>'
+                    + '<td>' + formatStoreResult(j.store_results) + '</td>'
+                    + '</tr>';
+            });
+            body.html(rows.join(''));
+        });
+    }
+    setInterval(refreshDistributionJobs, 8000);
 </script>
 <div class="row">
     <div class="col">
@@ -188,6 +275,22 @@
                 <h3 class="card-title">Preview and Distribute</h3>
             </div>
             <div class="card-body" id="preview_and_distribute">
+                {% if can_use_ddex_delivery|default:False %}
+                <ul class="nav nav-tabs mb-3" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="tab-preview-distribute-btn" data-bs-toggle="tab" data-bs-target="#tab-preview-distribute" type="button" role="tab" aria-controls="tab-preview-distribute" aria-selected="true">
+                            Preview and Distribute
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="tab-delivery-operations-btn" data-bs-toggle="tab" data-bs-target="#tab-delivery-operations" type="button" role="tab" aria-controls="tab-delivery-operations" aria-selected="false">
+                            Delivery Operations
+                        </button>
+                    </li>
+                </ul>
+                {% endif %}
+                <div class="tab-content">
+                    <div class="tab-pane fade show active" id="tab-preview-distribute" role="tabpanel" aria-labelledby="tab-preview-distribute-btn">
                 <form>
                     <!-- Distribute / Submit for approval (no Sonosuite branding) -->
                     <div class="row mb-3" style="background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 6px; padding: 12px 16px;">
@@ -217,23 +320,11 @@
                             {% endif %}
                         </div>
                     </div>
-                    <!-- DDEX delivery for Audiomack, Gaana & TikTok (Admin only) -->
-                    {% if can_use_ddex_delivery|default:False %}
-                    <div class="row mb-3" style="background-color: #e8f4fd; border: 1px solid #b6d4fe; border-radius: 6px; padding: 12px 16px;">
-                        <div class="col-12">
-                            <span class="me-2">Deliver to Audiomack, Gaana & TikTok: XML + artwork + tracks</span>
-                            <button id="btn_ddex_audiomack" type="button" class="btn btn-outline-primary btn-sm" onclick="ddex_deliver_audiomack()" title="Build DDEX ERN 4.3 and deliver to Audiomack, Gaana and TikTok. Admin only.">DDEX delivery for Audiomack, Gaana &amp; TikTok</button>
-                        </div>
-                    </div>
-                    {% endif %}
-                    <!-- Deliver to Apple Music only / Takedown from Apple Music (Admin only) -->
                     {% if can_use_ddex_delivery|default:False %}
                     <div class="row mb-3" style="background-color: #f5f0ff; border: 1px solid #c4b5fd; border-radius: 6px; padding: 12px 16px;">
                         <div class="col-12">
-                            <span class="me-2">Deliver to Apple Music only (Merlin Bridge)</span>
-                            <button id="btn_ddex_apple_music" type="button" class="btn btn-outline-secondary btn-sm" onclick="ddex_deliver_apple_music()" title="Build Apple iTunes Importer (music5.3) and upload to Merlin Bridge SFTP. Admin only." {% if not can_be_distributed %}disabled{% endif %}>Deliver to Apple Music only</button>
-                            <span class="me-2 ms-3">Takedown from Apple Music (Merlin Bridge)</span>
-                            <button id="btn_ddex_takedown_apple_music" type="button" class="btn btn-outline-danger btn-sm" onclick="ddex_takedown_apple_music()" title="Send PurgeReleaseMessage (takedown) to Merlin Bridge SFTP. Admin only.">Takedown from Apple Music only</button>
+                            <button id="btn_ddex_distribute_stores" type="button" class="btn btn-outline-primary btn-sm" onclick="ddex_distribute_stores()" {% if not can_be_distributed %}disabled{% endif %}>Distribute to Stores</button>
+                            <button id="btn_ddex_takedown_stores" type="button" class="btn btn-outline-danger btn-sm ms-2" onclick="ddex_takedown_stores()">Takedown from Stores</button>
                         </div>
                     </div>
                     {% endif %}
@@ -428,6 +519,35 @@
                             </div>
                         </div>
                 </form>
+                    </div>
+                    {% if can_use_ddex_delivery|default:False %}
+                    <div class="tab-pane fade" id="tab-delivery-operations" role="tabpanel" aria-labelledby="tab-delivery-operations-btn">
+                        <div class="row mb-3" style="background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 6px; padding: 12px 16px;">
+                            <div class="col-12">
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-striped">
+                                        <thead>
+                                            <tr>
+                                                <th>ID</th>
+                                                <th>Action</th>
+                                                <th>Status</th>
+                                                <th>Requested By</th>
+                                                <th>Requested At</th>
+                                                <th>Completed At</th>
+                                                <th>Time Taken</th>
+                                                <th>Store Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="distribution_jobs_tbody">
+                                            <tr><td colspan="8" class="text-muted">Loading...</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
             </div>
         </div>
     </div>
@@ -439,6 +559,9 @@
     if (preview_and_distribute_tracks_table) {
         const dataTable = new simpleDatatables.DataTable(preview_and_distribute_tracks_table);
     }
+    {% if can_use_ddex_delivery|default:False %}
+    refreshDistributionJobs();
+    {% endif %}
 </script>
 <!-- Preview & Distribute Section End -->
 {% endautoescape %}
