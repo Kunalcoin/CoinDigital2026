@@ -158,8 +158,16 @@ class TrackAdmin(admin.ModelAdmin):
             'fields': ('audio_track_url', 'start_point', 'available_separately')
         }),
         ('Apple Music (Merlin Bridge)', {
-            'fields': ('apple_music_instant_grat',),
-            'description': 'Pre-order only: mark Instant Grat tracks (≥1 required, ≤50% of tracks). See MERLIN_BRIDGE_APPLE_MUSIC.md.',
+            'fields': (
+                'apple_music_instant_grat',
+                'apple_music_dolby_atmos_url',
+                'apple_music_dolby_atmos_isrc',
+            ),
+            'description': (
+                'Pre-order: Instant Grat (≥1, ≤50% of tracks). '
+                'Dolby Atmos: BWF ADM .wav URL + distinct secondary ISRC; only delivered when the release owner has '
+                '"Apple Music Dolby Atmos delivery" enabled on their user. See MERLIN_BRIDGE_APPLE_MUSIC.md.'
+            ),
         }),
         ('Identifiers', {
             'fields': ('isrc', 'iswc'),

@@ -1581,6 +1581,49 @@ def edit_splitroyalities_enabled(request):
             return JsonResponse({"success": False, "message": "User not found."}, status=404)
     return JsonResponse({"success": False, "message": "POST required."}, status=405)
 
+
+@csrf_exempt
+def edit_apple_music_dolby_atmos_enabled(request):
+    """Admin-only toggle: per-user Apple Music Dolby Atmos delivery (mirrors split royalties pattern)."""
+    if not request.user.is_authenticated or not request.user.is_active:
+        return JsonResponse({"success": False, "message": "Authentication required."}, status=401)
+
+    if request.user.role != CDUser.ROLES.ADMIN:
+        return JsonResponse(
+            {"success": False, "message": "Only admins can enable/disable Apple Music Dolby Atmos delivery."},
+            status=403,
+        )
+
+    if request.method == "POST":
+        user_id = request.POST.get("user")
+        enabled = request.POST.get("dolbyatmos") == "1"
+        try:
+            user = CDUser.objects.get(pk=user_id)
+            if enabled and user.role != CDUser.ROLES.NORMAL:
+                return JsonResponse(
+                    {
+                        "success": False,
+                        "message": "Apple Music Dolby Atmos can only be enabled for normal users.",
+                    },
+                    status=400,
+                )
+            user.apple_music_dolby_atmos_enabled = enabled
+            user.save()
+            return JsonResponse(
+                {
+                    "success": True,
+                    "message": (
+                        "Apple Music Dolby Atmos delivery enabled."
+                        if enabled
+                        else "Apple Music Dolby Atmos delivery disabled."
+                    ),
+                }
+            )
+        except CDUser.DoesNotExist:
+            return JsonResponse({"success": False, "message": "User not found."}, status=404)
+    return JsonResponse({"success": False, "message": "POST required."}, status=405)
+
+
 def edit_user(request, id):
     
     selected_user = CDUser.objects.get(pk=id)
@@ -2054,6 +2097,13 @@ def insert_user(request):
                 parent=request.user
             )
             created_user.save()
+            if (
+                request.user.role == CDUser.ROLES.ADMIN
+                and created_user.role == CDUser.ROLES.NORMAL
+                and request.POST.get("apple_music_dolby_atmos") == "1"
+            ):
+                created_user.apple_music_dolby_atmos_enabled = True
+                created_user.save(update_fields=["apple_music_dolby_atmos_enabled"])
             ratio = Ratio.objects.create(
                 user=created_user,
                 stores=request.POST["ratio"],

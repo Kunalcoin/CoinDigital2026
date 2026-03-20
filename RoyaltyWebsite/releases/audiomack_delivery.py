@@ -7,7 +7,7 @@ import logging
 import os
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Tuple
-from urllib.parse import urlparse
+from urllib.parse import urlparse, unquote
 
 from django.conf import settings
 
@@ -27,8 +27,8 @@ def _s3_bucket_key_from_url(url: str, default_bucket: str) -> Tuple[str, str]:
     if not url.startswith("http"):
         return (default_bucket, url.lstrip("/"))
     try:
-        parsed = urlparse(url)
-        path = (parsed.path or "").lstrip("/")
+        parsed = urlparse(url.split("?", 1)[0])  # strip presign query for bucket/key only
+        path = unquote((parsed.path or "").lstrip("/"))
         host = (parsed.hostname or "").lower()
         if "s3.amazonaws.com" in host or ".s3." in host:
             if ".s3." in host:

@@ -415,7 +415,20 @@ class Processor(metaclass=ProcessorMeta):
                 "audio_mp3_url": audio_mp3_url,
                 "audio_flac_url": audio_flac_url,
                 "audio_uploaded_at_ist": audio_uploaded_at_ist,
+                "apple_music_dolby_atmos_url": getattr(
+                    instance, "apple_music_dolby_atmos_url", ""
+                )
+                or "",
+                "apple_music_dolby_atmos_isrc": getattr(
+                    instance, "apple_music_dolby_atmos_isrc", ""
+                )
+                or "",
             }
+            _atmos_u = (data.get("apple_music_dolby_atmos_url") or "").strip()
+            _atmos_i = (data.get("apple_music_dolby_atmos_isrc") or "").strip()
+            data["dolby_atmos_setup_percent"] = (
+                (50 if _atmos_u else 0) + (50 if len(_atmos_i) >= 12 else 0)
+            )
 
         return self.clean_dictionary(data)
 

@@ -549,6 +549,18 @@
             </div>
           </div>
 
+          {% if requesting_user_role == "admin" %}
+          <div class="mb-3">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="apple_music_dolby_atmos_new"
+                name="apple_music_dolby_atmos" value="1">
+              <label class="form-check-label" for="apple_music_dolby_atmos_new">
+                Enable Apple Music Dolby Atmos delivery (applies only if role is <strong>normal</strong>)
+              </label>
+            </div>
+          </div>
+          {% endif %}
+
           <div class="mb-3">
             <div class="col-lg-12" style="text-align: right;">
               <button type="submit" class="btn btn-secondary">

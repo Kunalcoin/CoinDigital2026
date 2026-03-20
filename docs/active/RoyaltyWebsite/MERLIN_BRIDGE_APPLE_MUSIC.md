@@ -95,7 +95,17 @@ MERLIN_BRIDGE_SFTP_REMOTE_PATH=apple/regular
     - **`metadata.xml`** (required name; inside `{upc}.itmsp/`)
     - **`{upc}.jpg`** (artwork)
     - **`{upc}_01_001.wav`** (and further tracks as needed; `.flac` if that’s what you store).
+    - **Dolby Atmos (optional):** **`{upc}_01_001_atmos.wav`** … one BWF ADM master per track that has Atmos enabled (see below).
 - **Merlin paths (per Bridge team):** Set `MERLIN_BRIDGE_SFTP_REMOTE_PATH=apple/regular` for normal delivery; `apple/priority` for urgent/street-date; `apple/backlog` for large catalog.
+
+### Per-user Dolby Atmos (gated)
+
+- **Who can deliver Atmos:** Only releases whose **`created_by`** user has **`apple_music_dolby_atmos_enabled`** set to true on **`CDUser`**. Admins toggle this in **Manage users → Edit user** (same area as split royalties) or when **creating** a normal user (checkbox on add-user form), or via Django admin on the user.
+- **Track fields (Django admin → Track, or admin UI if exposed):**
+  - **`apple_music_dolby_atmos_url`** — S3/HTTPS URL to the **BWF ADM** `.wav` (24-bit LPCM @ 48 kHz per Apple).
+  - **`apple_music_dolby_atmos_isrc`** — **Secondary ISRC** for the immersive mix (letters/digits only in XML; required by Apple on the object-based `data_file`).
+- **Metadata:** When the above are present and the file is included in the package, `metadata.xml` uses an **`<assets><asset type="full">`** block with **`audio.2_0`** (stereo) and **`audio.object_based`** (Dolby Atmos), per **Apple Music Specification 5.3** (immersive audio). If the user flag is off, stereo-only **`<audio_file>`** is emitted as before.
+- **Metadata-only updates:** If checksums for stereo/Atmos files are unchanged, Bridge may accept metadata-only packages without re-uploading binaries (same as stereo-only behavior).
 - **Admin flow:** When admin approves a release and Apple Music is in `DELIVERY_STORES`, the app delivers the Apple-format package to Bridge SFTP.
 - **Takedown:** On **Preview & Distribute**, admin can click **Takedown from Apple Music only** to send a DDEX PurgeReleaseMessage to Merlin Bridge SFTP at `{base_path}/takedown/{upc}_PurgeRelease.xml`. The same takedown is also sent when a user submits a **Takedown Request** (with Audiomack and Gaana).
 

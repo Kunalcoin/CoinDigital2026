@@ -35,6 +35,11 @@ urlpatterns = [
     path('releases/update_release_title/<str:primary_uuid>/<str:new_release_title>', views.update_release_title, name="update_release_title"), # Admin working: ✅ || intermediate working: ✅ || normal working: ✅
 
     path('releases/file_uploader/<str:primary_uuid>', views.file_uploader, name="file_uploader"),
+    path(
+        'releases/file_uploader/<str:primary_uuid>/<str:track_uuid>/atmos/',
+        views.file_uploader_atmos_track,
+        name="file_uploader_atmos_track",
+    ),
     path('releases/upload_releases', views.upload_releases, name='upload_releases'),
     path('releases/release_report', views.release_report, name="release_report"),
     

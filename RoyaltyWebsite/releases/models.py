@@ -416,6 +416,22 @@ class Track(models.Model):
         "<preorder_type>standard</preorder_type> on others (track-level, not inside <product>). "
         "At most half the tracks may be IG.",
     )
+    apple_music_dolby_atmos_url = models.CharField(
+        "Apple Music Dolby Atmos (BWF ADM .wav) URL",
+        max_length=1024,
+        blank=True,
+        default="",
+        help_text="S3 or HTTPS URL to the Dolby Atmos master (BWF with ADM). Only used when the release "
+        "owner has Apple Music Dolby Atmos enabled. Package filename: {UPC}_01_{NNN}_atmos.wav.",
+    )
+    apple_music_dolby_atmos_isrc = models.CharField(
+        "Apple Music Dolby Atmos ISRC (secondary)",
+        max_length=255,
+        blank=True,
+        default="",
+        help_text="Required for Atmos delivery: distinct ISRC for the immersive mix (no dashes in XML). "
+        "Apple: external_identifier.isrc on the object-based audio data_file.",
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

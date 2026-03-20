@@ -76,13 +76,13 @@ def _s3_bucket_key_from_url(url: str, default_bucket: str) -> Tuple[str, str]:
     """Parse S3 URL to (bucket, key). Handles virtual-hosted and path-style URLs."""
     if not url or not isinstance(url, str):
         return (default_bucket, "")
-    from urllib.parse import urlparse
+    from urllib.parse import urlparse, unquote
     url = url.strip()
     if not url.startswith("http"):
         return (default_bucket, url.lstrip("/"))
     try:
-        parsed = urlparse(url)
-        path = (parsed.path or "").lstrip("/")
+        parsed = urlparse(url.split("?", 1)[0])
+        path = unquote((parsed.path or "").lstrip("/"))
         host = (parsed.hostname or "").lower()
         # Path-style: https://s3.amazonaws.com/bucket/key or https://s3.region.amazonaws.com/bucket/key
         if host in ("s3.amazonaws.com",) or (host.startswith("s3.") and host.endswith(".amazonaws.com")):

@@ -210,7 +210,12 @@ USE_TZ = True
 
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 STATIC_URL = "/static/"
-STATICFILES_DIRS = [os.path.join(BASE_DIR, "static")] if os.path.exists(os.path.join(BASE_DIR, "static")) else []
+# `static/` is often gitignored as build output; versioned JS lives in `app_static/` (e.g. upload-file-loader.js).
+_STATIC_DIR = os.path.join(BASE_DIR, "static")
+_APP_STATIC_DIR = os.path.join(BASE_DIR, "app_static")
+STATICFILES_DIRS = [
+    d for d in (_STATIC_DIR, _APP_STATIC_DIR) if os.path.exists(d)
+]
 
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 MEDIA_URL = "/media/"

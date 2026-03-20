@@ -12,7 +12,7 @@ import os
 import re
 import zipfile
 from io import BytesIO, StringIO
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from django.conf import settings
 
@@ -28,6 +28,12 @@ from releases.upc_utils import normalize_upc_to_13
 logger = logging.getLogger(__name__)
 
 JPEG_MAGIC = b"\xFF\xD8\xFF"
+
+
+def _release_apple_atmos_enabled(release: Release) -> bool:
+    """True when release owner may deliver Dolby Atmos (per-user admin flag on CDUser)."""
+    u = getattr(release, "created_by", None)
+    return bool(u and getattr(u, "apple_music_dolby_atmos_enabled", False))
 
 
 def _validate_apple_preorder_vs_street(release: Release) -> Tuple[bool, str]:
@@ -329,6 +335,35 @@ def _gather_apple_assets_and_file_info(
         to_upload.append((remote_audio_name, body))
         logger.info("Track %s: %s bytes, md5=%s", idx + 1, len(body), md5)
 
+        if _release_apple_atmos_enabled(release):
+            atmos_url = (getattr(track, "apple_music_dolby_atmos_url", None) or "").strip()
+            atmos_isrc = (getattr(track, "apple_music_dolby_atmos_isrc", None) or "").strip()
+            if atmos_url and atmos_isrc:
+                ab, ak = _s3_bucket_key_from_url(atmos_url, default_bucket)
+                if not ak:
+                    prog("Track %s: Dolby Atmos URL could not be parsed; skipping Atmos file." % (idx + 1))
+                else:
+                    atmos_body = _s3_get_object_bytes_with_progress(
+                        s3,
+                        ab,
+                        ak,
+                        prog,
+                        "Track %s Dolby Atmos" % (idx + 1),
+                    )
+                    atmos_md5 = hashlib.md5(atmos_body).hexdigest().lower()
+                    file_info[f"track_{idx}_atmos"] = {
+                        "size": len(atmos_body),
+                        "md5": atmos_md5,
+                    }
+                    remote_atmos = f"{upc}_01_{idx + 1:03d}_atmos.wav"
+                    to_upload.append((remote_atmos, atmos_body))
+                    logger.info(
+                        "Track %s Dolby Atmos: %s bytes, md5=%s",
+                        idx + 1,
+                        len(atmos_body),
+                        atmos_md5,
+                    )
+
     return (file_info, to_upload, audio_ext)
 
 
@@ -490,6 +525,33 @@ def _gather_apple_metadata_update_file_info(
             logger.warning("Metadata update: track %s S3 error: %s", idx + 1, e)
             prog("Track %s: S3 error %s" % (idx + 1, e))
 
+        if _release_apple_atmos_enabled(release):
+            atmos_url = (getattr(track, "apple_music_dolby_atmos_url", None) or "").strip()
+            atmos_isrc = (getattr(track, "apple_music_dolby_atmos_isrc", None) or "").strip()
+            if atmos_url and atmos_isrc:
+                ab, ak = _s3_bucket_key_from_url(atmos_url, default_bucket)
+                if not ak:
+                    prog("Track %s: Dolby Atmos URL could not be parsed (metadata-only pass)." % (idx + 1))
+                else:
+                    try:
+                        ahead = s3.head_object(Bucket=ab, Key=ak)
+                        asize = int(ahead.get("ContentLength") or 0)
+                        amd5 = _etag_to_content_md5(ahead.get("ETag") or "")
+                        if not amd5:
+                            prog(
+                                "Track %s: Atmos multipart or non-MD5 ETag; downloading for MD5..."
+                                % (idx + 1)
+                            )
+                            abody = _s3_get_object_bytes_with_progress(
+                                s3, ab, ak, prog, "Track %s Atmos (MD5)" % (idx + 1)
+                            )
+                            asize = len(abody)
+                            amd5 = hashlib.md5(abody).hexdigest().lower()
+                        file_info[f"track_{idx}_atmos"] = {"size": asize, "md5": amd5}
+                    except Exception as e:
+                        logger.warning("Metadata update: track %s Atmos S3 error: %s", idx + 1, e)
+                        prog("Track %s: Atmos S3 error %s" % (idx + 1, e))
+
     return (file_info, audio_ext)
 
 
@@ -635,6 +697,7 @@ def _upload_merlin_bridge_apple_to_sftp(
 def deliver_release_to_merlin_bridge(
     release: Release,
     metadata_only: bool = False,
+    distribution_job_id: Optional[int] = None,
 ) -> Tuple[bool, str, Dict[str, Any]]:
     """
     Build Apple iTunes Importer (music5.3) metadata and upload to Merlin Bridge SFTP (SSH key auth).
@@ -648,6 +711,16 @@ def deliver_release_to_merlin_bridge(
     """
     def progress(msg: str) -> None:
         print(f"[Merlin Bridge] {msg}", flush=True)
+        if distribution_job_id:
+            try:
+                from releases.distribution_job_progress import (
+                    update_distribution_job_merlin_progress,
+                )
+
+                update_distribution_job_merlin_progress(distribution_job_id, msg)
+            except Exception:
+                logger.debug("distribution_job progress update skipped", exc_info=True)
+
     progress("Assigning UPC/ISRC if needed...")
     ok, err = _assign_upc_isrc_if_needed(release)
     if not ok:
