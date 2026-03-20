@@ -84,6 +84,14 @@ staticfiles/
 /static/
 static/
 
+# Large generated folders (ignore at any depth)
+**/media/
+**/static/
+**/staticfiles/
+**/venv/
+**/.venv/
+**/env/
+
 # Flask
 instance/
 .webassets-cache
@@ -129,6 +137,15 @@ node_modules/
 **/*-backup-*/
 *.backup
 *.backup_*
+
+# Database backup artifacts (do not commit)
+db_backups/
+backup_db/
+*.sql.gz
+*.dump
+*.dmp
+*backup*.sql
+*backup*.sqlite3
 
 # Redis / other
 *.rdb
