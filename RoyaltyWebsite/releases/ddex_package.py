@@ -72,16 +72,33 @@ def package_exists(release: Release) -> bool:
         return False
 
 
+def normalize_s3_https_url(url: str) -> str:
+    """
+    Store stable public URLs: strip presign query (X-Amz-*) and fragment.
+    Paste either a long presigned link or the short HTTPS URL — both resolve to the same object.
+    """
+    if not url or not isinstance(url, str):
+        return ""
+    u = url.strip()
+    if not u:
+        return ""
+    if "?" in u:
+        u = u.split("?", 1)[0]
+    if "#" in u:
+        u = u.split("#", 1)[0]
+    return u.strip()
+
+
 def _s3_bucket_key_from_url(url: str, default_bucket: str) -> Tuple[str, str]:
     """Parse S3 URL to (bucket, key). Handles virtual-hosted and path-style URLs."""
     if not url or not isinstance(url, str):
         return (default_bucket, "")
     from urllib.parse import urlparse, unquote
-    url = url.strip()
+    url = normalize_s3_https_url(url)
     if not url.startswith("http"):
         return (default_bucket, url.lstrip("/"))
     try:
-        parsed = urlparse(url.split("?", 1)[0])
+        parsed = urlparse(url)
         path = unquote((parsed.path or "").lstrip("/"))
         host = (parsed.hostname or "").lower()
         # Path-style: https://s3.amazonaws.com/bucket/key or https://s3.region.amazonaws.com/bucket/key

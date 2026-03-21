@@ -44,6 +44,7 @@ from django.views.decorators.http import require_POST, require_GET
 import json
 from django.contrib.auth.decorators import login_required
 
+from .ddex_package import normalize_s3_https_url
 from .processor import processor
 
 
@@ -1280,9 +1281,9 @@ def single_tracks_info(request, primary_uuid, primary_track_uuid):
             )
             _track.start_point = request.POST.get("start_point_time_track")
             _track.notes = request.POST.get("notes_track")
-            _track.apple_music_dolby_atmos_url = (
+            _track.apple_music_dolby_atmos_url = normalize_s3_https_url(
                 request.POST.get("apple_music_dolby_atmos_url") or ""
-            ).strip()
+            )
             _track.apple_music_dolby_atmos_isrc = (
                 request.POST.get("apple_music_dolby_atmos_isrc") or ""
             ).strip().upper()
