@@ -30,6 +30,12 @@ logger = logging.getLogger(__name__)
 JPEG_MAGIC = b"\xFF\xD8\xFF"
 
 
+class MerlinDownloadCancelled(Exception):
+    """Raised when a distribution job is cancelled during a large S3 read (e.g. Dolby Atmos)."""
+
+
+
+
 def _release_apple_atmos_enabled(release: Release) -> bool:
     """True when release owner may deliver Dolby Atmos (per-user admin flag on CDUser)."""
     u = getattr(release, "created_by", None)
@@ -256,7 +262,11 @@ def open_merlin_bridge_sftp():
 
 
 def _gather_apple_assets_and_file_info(
-    release: Release, upc: str, default_bucket: str, progress=None
+    release: Release,
+    upc: str,
+    default_bucket: str,
+    progress=None,
+    distribution_job_id: Optional[int] = None,
 ) -> Tuple[Dict[str, Dict[str, Any]], List[Tuple[str, bytes]], str]:
     """
     Fetch artwork + audio from S3, compute size and MD5. Return (file_info, list of (remote_name, body), audio_ext).
@@ -287,7 +297,13 @@ def _gather_apple_assets_and_file_info(
         b, k = _s3_bucket_key_from_url(cover_url, default_bucket)
         if k:
             body = _s3_get_object_bytes_with_progress(
-                s3, b, k, prog, "Cover art", report_every_bytes=5 * 1024 * 1024
+                s3,
+                b,
+                k,
+                prog,
+                "Cover art",
+                report_every_bytes=5 * 1024 * 1024,
+                distribution_job_id=distribution_job_id,
             )
 
             # Bridge validation expects actual JPEG/PNG bytes; our filename is always .jpg,
@@ -324,6 +340,7 @@ def _gather_apple_assets_and_file_info(
             k,
             prog,
             "Track %s/%s" % (idx + 1, len(tracks_with_audio)),
+            distribution_job_id=distribution_job_id,
         )
         md5 = hashlib.md5(body).hexdigest().lower()
         if idx == 0 and "." in k:
@@ -349,6 +366,7 @@ def _gather_apple_assets_and_file_info(
                         ak,
                         prog,
                         "Track %s Dolby Atmos" % (idx + 1),
+                        distribution_job_id=distribution_job_id,
                     )
                     atmos_md5 = hashlib.md5(atmos_body).hexdigest().lower()
                     file_info[f"track_{idx}_atmos"] = {
@@ -404,6 +422,7 @@ def _s3_get_object_bytes_with_progress(
     *,
     report_every_bytes: int = 10 * 1024 * 1024,
     read_chunk_size: int = 8 * 1024 * 1024,
+    distribution_job_id: Optional[int] = None,
 ) -> bytes:
     """
     Download full S3 object into memory with periodic progress (so long downloads do not look "stuck").
@@ -428,6 +447,14 @@ def _s3_get_object_bytes_with_progress(
     next_report_at = report_every_bytes
 
     while True:
+        if distribution_job_id:
+            from releases.distribution_job_progress import is_distribution_job_cancel_requested
+
+            if is_distribution_job_cancel_requested(distribution_job_id):
+                prog("%s — cancelled (stop requested)." % label)
+                raise MerlinDownloadCancelled(
+                    "Distribution cancelled while downloading from S3 (large file)."
+                )
         chunk = body.read(read_chunk_size)
         if not chunk:
             break
@@ -448,7 +475,11 @@ def _s3_get_object_bytes_with_progress(
 
 
 def _gather_apple_metadata_update_file_info(
-    release: Release, upc: str, default_bucket: str, progress=None
+    release: Release,
+    upc: str,
+    default_bucket: str,
+    progress=None,
+    distribution_job_id: Optional[int] = None,
 ) -> Tuple[Dict[str, Dict[str, Any]], str]:
     """
     Build file_info for metadata.xml without downloading full audio files.
@@ -481,7 +512,13 @@ def _gather_apple_metadata_update_file_info(
         if k:
             prog("Metadata update: reading cover from S3 for size/MD5 (JPEG-normalized like full delivery)...")
             body = _s3_get_object_bytes_with_progress(
-                s3, b, k, prog, "Cover art", report_every_bytes=5 * 1024 * 1024
+                s3,
+                b,
+                k,
+                prog,
+                "Cover art",
+                report_every_bytes=5 * 1024 * 1024,
+                distribution_job_id=distribution_job_id,
             )
             body_converted, _ = _ensure_jpeg_bytes(body)
             md5 = hashlib.md5(body_converted).hexdigest().lower()
@@ -516,7 +553,12 @@ def _gather_apple_metadata_update_file_info(
             if not md5:
                 prog("Track %s: multipart or non-MD5 ETag; downloading to compute MD5..." % (idx + 1))
                 body = _s3_get_object_bytes_with_progress(
-                    s3, b, k, prog, "Track %s (MD5)" % (idx + 1)
+                    s3,
+                    b,
+                    k,
+                    prog,
+                    "Track %s (MD5)" % (idx + 1),
+                    distribution_job_id=distribution_job_id,
                 )
                 size = len(body)
                 md5 = hashlib.md5(body).hexdigest().lower()
@@ -543,7 +585,12 @@ def _gather_apple_metadata_update_file_info(
                                 % (idx + 1)
                             )
                             abody = _s3_get_object_bytes_with_progress(
-                                s3, ab, ak, prog, "Track %s Atmos (MD5)" % (idx + 1)
+                                s3,
+                                ab,
+                                ak,
+                                prog,
+                                "Track %s Atmos (MD5)" % (idx + 1),
+                                distribution_job_id=distribution_job_id,
                             )
                             asize = len(abody)
                             amd5 = hashlib.md5(abody).hexdigest().lower()
@@ -561,6 +608,7 @@ def _upload_merlin_bridge_apple_to_sftp(
     default_bucket: str,
     progress=None,
     metadata_only: bool = False,
+    distribution_job_id: Optional[int] = None,
 ) -> Tuple[bool, str, str]:
     """
     Upload Apple iTunes Importer package to Merlin Bridge SFTP.
@@ -598,13 +646,23 @@ def _upload_merlin_bridge_apple_to_sftp(
     try:
         if metadata_only:
             file_info, audio_ext = _gather_apple_metadata_update_file_info(
-                release, upc, default_bucket, progress=progress
+                release,
+                upc,
+                default_bucket,
+                progress=progress,
+                distribution_job_id=distribution_job_id,
             )
             to_upload: List[Tuple[str, bytes]] = []
         else:
             file_info, to_upload, audio_ext = _gather_apple_assets_and_file_info(
-                release, upc, default_bucket, progress=progress
+                release,
+                upc,
+                default_bucket,
+                progress=progress,
+                distribution_job_id=distribution_job_id,
             )
+    except MerlinDownloadCancelled as e:
+        return (False, str(e), "")
     except Exception as e:
         return (False, str(e), "")
     if metadata_only:
@@ -745,7 +803,12 @@ def deliver_release_to_merlin_bridge(
     our_bucket = (getattr(settings, "AWS_STORAGE_BUCKET_NAME", None) or "").strip() or "coindigital-media"
 
     sftp_ok, sftp_err, sftp_path = _upload_merlin_bridge_apple_to_sftp(
-        release, upc, our_bucket, progress=progress, metadata_only=metadata_only
+        release,
+        upc,
+        our_bucket,
+        progress=progress,
+        metadata_only=metadata_only,
+        distribution_job_id=distribution_job_id,
     )
     if sftp_ok:
         if metadata_only:

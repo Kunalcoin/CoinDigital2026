@@ -258,6 +258,27 @@
         }
         return parts.join("<br>");
     }
+    function cancelDistributionJob(jobId) {
+        if (!jobId) return;
+        if (!confirm("Cancel this delivery job? Large Apple/Merlin downloads will stop at the next checkpoint.")) return;
+        $.ajax({
+            type: "POST",
+            url: "/releases/{{ primary_uuid }}/ddex-distribution-jobs/" + jobId + "/cancel/",
+            headers: { "X-CSRFToken": getCSRFToken(), "Content-Type": "application/json" },
+            data: JSON.stringify({}),
+            timeout: 60000,
+        }).then(function (response) {
+            if (response.success) {
+                sendSweetAlert("success", "", response.message || "Cancel requested.");
+                refreshDistributionJobs();
+            } else {
+                sendSweetAlert("error", "", response.message || "Cancel failed.");
+            }
+        }).fail(function (xhr) {
+            var msg = (xhr.responseJSON && xhr.responseJSON.message) ? xhr.responseJSON.message : "Cancel failed.";
+            sendSweetAlert("error", "", msg);
+        });
+    }
     function refreshDistributionJobs() {
         var body = $("#distribution_jobs_tbody");
         if (!body.length) return;
@@ -269,10 +290,14 @@
             if (!response.success) return;
             var jobs = response.jobs || [];
             if (!jobs.length) {
-                body.html('<tr><td colspan="9" class="text-muted">No delivery operations yet.</td></tr>');
+                body.html('<tr><td colspan="10" class="text-muted">No delivery operations yet.</td></tr>');
                 return;
             }
             var rows = jobs.map(function (j) {
+                var st = (j.status || "").toLowerCase();
+                var cancelBtn = (st === "running" || st === "queued")
+                    ? '<button type="button" class="btn btn-sm btn-outline-danger" onclick="cancelDistributionJob(' + j.id + ')">Cancel</button>'
+                    : "—";
                 return '<tr>'
                     + '<td>' + j.id + '</td>'
                     + '<td>' + (j.action || '-') + '</td>'
@@ -283,6 +308,7 @@
                     + '<td>' + ((j.duration_seconds || 0) + 's') + '</td>'
                     + '<td class="small">' + formatRunningProgress(j) + '</td>'
                     + '<td>' + formatStoreResult(j.store_results) + '</td>'
+                    + '<td>' + cancelBtn + '</td>'
                     + '</tr>';
             });
             body.html(rows.join(''));
@@ -559,10 +585,11 @@
                                                 <th>Time Taken</th>
                                                 <th>In progress / Apple (large files)</th>
                                                 <th>Store Status</th>
+                                                <th>Actions</th>
                                             </tr>
                                         </thead>
                                         <tbody id="distribution_jobs_tbody">
-                                            <tr><td colspan="9" class="text-muted">Loading...</td></tr>
+                                            <tr><td colspan="10" class="text-muted">Loading...</td></tr>
                                         </tbody>
                                     </table>
                                 </div>

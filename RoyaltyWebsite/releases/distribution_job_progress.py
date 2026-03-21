@@ -17,6 +17,23 @@ _THROTTLE_SEC = 2.0
 _last_write: dict[int, float] = {}
 
 
+def is_distribution_job_cancel_requested(job_id: Optional[int]) -> bool:
+    """True if admin requested cancel or job is no longer active (e.g. manually failed)."""
+    if not job_id:
+        return False
+    from releases.models import DistributionJob
+
+    try:
+        j = DistributionJob.objects.only("cancel_requested", "status").get(pk=job_id)
+    except DistributionJob.DoesNotExist:
+        return True
+    if j.cancel_requested:
+        return True
+    if j.status not in (DistributionJob.STATUS.RUNNING, DistributionJob.STATUS.QUEUED):
+        return True
+    return False
+
+
 def update_distribution_job_merlin_progress(job_id: Optional[int], message: str) -> None:
     if not job_id or not (message or "").strip():
         return
@@ -33,6 +50,8 @@ def update_distribution_job_merlin_progress(job_id: Optional[int], message: str)
     except DistributionJob.DoesNotExist:
         return
     if job.status != DistributionJob.STATUS.RUNNING:
+        return
+    if job.cancel_requested:
         return
 
     data = dict(job.store_results or {})

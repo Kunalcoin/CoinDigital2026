@@ -337,6 +337,10 @@ class DistributionJob(models.Model):
     duration_seconds = models.FloatField(default=0)
     store_results = models.JSONField(default=dict, blank=True)
     message = models.TextField(default="", blank=True)
+    cancel_requested = models.BooleanField(
+        default=False,
+        help_text="Set by admin cancel; worker aborts between stores / during large S3 reads.",
+    )
 
     class Meta:
         verbose_name = "Distribution Job"

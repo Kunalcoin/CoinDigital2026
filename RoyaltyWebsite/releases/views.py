@@ -37,7 +37,7 @@ from django.db import close_old_connections
 from django.db.models import Q, Sum, Max
 from django.db.models.functions import Upper
 from django.http import HttpResponse, HttpResponseNotFound, JsonResponse
-from django.shortcuts import render
+from django.shortcuts import get_object_or_404, render
 from django.views.decorators.csrf import csrf_exempt
 from handlers import DataValidator, FileHandler
 from django.views.decorators.http import require_POST, require_GET
@@ -2249,8 +2249,21 @@ def _run_distribution_job(job_id: int) -> None:
                 ("apple_music", lambda: deliver_takedown_to_merlin_bridge(release)),
             ]
 
+        from releases.merlin_bridge_delivery import MerlinDownloadCancelled
+
         results = {}
+        cancelled = False
         for store_code, fn in ops:
+            job.refresh_from_db()
+            if job.cancel_requested:
+                cancelled = True
+                results[store_code] = {
+                    "success": False,
+                    "message": "Cancelled before this store ran.",
+                    "detail": {},
+                    "duration_seconds": 0,
+                }
+                break
             started = time.time()
             try:
                 ok, err, detail = fn()
@@ -2260,6 +2273,16 @@ def _run_distribution_job(job_id: int) -> None:
                     "detail": detail or {},
                     "duration_seconds": round(time.time() - started, 2),
                 }
+            except MerlinDownloadCancelled as e:
+                log.info("Distribution job %s cancelled during Merlin/S3: %s", job_id, e)
+                cancelled = True
+                results[store_code] = {
+                    "success": False,
+                    "message": str(e),
+                    "detail": {},
+                    "duration_seconds": round(time.time() - started, 2),
+                }
+                break
             except Exception as e:
                 log.exception("Distribution job %s store %s failed: %s", job_id, store_code, e)
                 results[store_code] = {
@@ -2270,8 +2293,12 @@ def _run_distribution_job(job_id: int) -> None:
                 }
 
         success_count = sum(1 for r in results.values() if r.get("success"))
-        total = len(results)
-        if success_count == total:
+        n_stores = len(results)
+        num_ops = len(ops)
+        if cancelled:
+            status = DistributionJob.STATUS.FAILED
+            msg = "Cancelled by admin."
+        elif success_count == n_stores and n_stores == num_ops:
             status = DistributionJob.STATUS.SUCCESS
             msg = "Completed successfully."
         elif success_count == 0:
@@ -2279,15 +2306,26 @@ def _run_distribution_job(job_id: int) -> None:
             msg = "All stores failed."
         else:
             status = DistributionJob.STATUS.PARTIAL
-            msg = f"Completed with partial success ({success_count}/{total})."
+            msg = f"Completed with partial success ({success_count}/{n_stores})."
 
         finished = timezone.now()
+        job.refresh_from_db()
         job.status = status
         job.finished_at = finished
         job.duration_seconds = round((finished - (job.started_at or finished)).total_seconds(), 2)
         job.store_results = results
         job.message = msg
-        job.save(update_fields=["status", "finished_at", "duration_seconds", "store_results", "message"])
+        job.cancel_requested = False
+        job.save(
+            update_fields=[
+                "status",
+                "finished_at",
+                "duration_seconds",
+                "store_results",
+                "message",
+                "cancel_requested",
+            ]
+        )
     except Exception as e:
         log.exception("Distribution job %s failed unexpectedly: %s", job_id, e)
         try:
@@ -2342,6 +2380,30 @@ def ddex_distribution_jobs(request, primary_uuid):
             "elapsed_running_seconds": elapsed_running,
         })
     return JsonResponse({"success": True, "jobs": data})
+
+
+@csrf_exempt
+@login_required
+def cancel_distribution_job(request, primary_uuid, job_id):
+    """Admin: request cancellation of a queued or running distribution job (stops between stores / during large S3 reads)."""
+    if request.method != "POST":
+        return JsonResponse({"success": False, "message": "POST required."}, status=405)
+    if request.user.role != CDUser.ROLES.ADMIN and not getattr(request.user, "is_staff", False):
+        return JsonResponse({"success": False, "message": "Only admin or staff can cancel."}, status=403)
+    try:
+        release = Release.objects.get(pk=primary_uuid)
+    except Release.DoesNotExist:
+        return JsonResponse({"success": False, "message": "Release not found."}, status=404)
+    job = get_object_or_404(DistributionJob, pk=job_id, release=release)
+    if job.status not in (DistributionJob.STATUS.QUEUED, DistributionJob.STATUS.RUNNING):
+        return JsonResponse({"success": False, "message": "Job is not queued or running."}, status=400)
+    job.cancel_requested = True
+    job.message = "Cancellation requested…"
+    job.save(update_fields=["cancel_requested", "message"])
+    return JsonResponse({
+        "success": True,
+        "message": "Cancel requested. The job will stop at the next checkpoint (or during large S3 download).",
+    })
 
 
 @csrf_exempt
