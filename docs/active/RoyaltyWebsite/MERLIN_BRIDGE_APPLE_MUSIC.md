@@ -73,6 +73,11 @@ MERLIN_BRIDGE_SFTP_REMOTE_PATH=apple/regular
 | `MERLIN_BRIDGE_SFTP_KEY_PASSPHRASE` | **Required if your private key is encrypted.** Passphrase for the key. Prefer setting in `.env` (not committed). | (none) |
 | `MERLIN_BRIDGE_S3_CONNECT_TIMEOUT` | Seconds to wait when opening the TCP connection to S3. | `30` |
 | `MERLIN_BRIDGE_S3_READ_TIMEOUT` | Seconds between socket reads while downloading an object (not total transfer time). Raise if you see read timeouts on slow networks; full WAV pulls can take many minutes. | `600` |
+| `MERLIN_BRIDGE_SPILL_TO_DISK_MB` | Stereo masters at or above this size (MB) are **streamed to a temp file** + MD5 during download (not held fully in RAM). Dolby Atmos masters **always** use disk streaming. | `500` |
+
+**Large / Dolby Atmos masters (~1 GB+):** Dolby Atmos files are **always** downloaded to a **temp file** on disk with **MD5 computed while streaming**. Stereo WAV/FLAC above **`MERLIN_BRIDGE_SPILL_TO_DISK_MB`** use the same path. This avoids **OOM** and the long apparent hang at **~98%** caused by `join()` of gigabyte chunk lists in memory. Temp files are removed after the `.itmsp.zip` is built.
+
+**Docker / host memory:** The final zip is still built in memory before SFTP upload—allow **several GB RAM** for the `django_gunicorn` worker on large Atmos deliveries (e.g. set container/host limit **≥ 4 GB** if you routinely deliver 1GB+ masters).
 
 **If you see "Invalid SSH key or passphrase: private key file is encrypted":** your key has a passphrase. Set `MERLIN_BRIDGE_SFTP_KEY_PASSPHRASE` in `.env` (or your env) to the key’s passphrase and restart the app. Do not commit the passphrase to git.
 

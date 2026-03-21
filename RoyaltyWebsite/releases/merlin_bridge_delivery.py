@@ -11,8 +11,9 @@ import logging
 import os
 import re
 import zipfile
+import tempfile
 from io import BytesIO, StringIO
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from django.conf import settings
 
@@ -267,7 +268,7 @@ def _gather_apple_assets_and_file_info(
     default_bucket: str,
     progress=None,
     distribution_job_id: Optional[int] = None,
-) -> Tuple[Dict[str, Dict[str, Any]], List[Tuple[str, bytes]], str]:
+) -> Tuple[Dict[str, Dict[str, Any]], List[Tuple[str, Union[bytes, str]]], str]:
     """
     Fetch artwork + audio from S3, compute size and MD5. Return (file_info, list of (remote_name, body), audio_ext).
     file_info is passed to build_apple_itunes_metadata; list is used for SFTP upload.
@@ -289,7 +290,7 @@ def _gather_apple_assets_and_file_info(
         raise RuntimeError(f"S3 client: {e}") from e
 
     file_info: Dict[str, Dict[str, Any]] = {}
-    to_upload: List[Tuple[str, bytes]] = []
+    to_upload: List[Tuple[str, Union[bytes, str]]] = []
     audio_ext = "wav"
 
     cover_url = getattr(release, "cover_art_url", None) or ""
@@ -334,23 +335,38 @@ def _gather_apple_assets_and_file_info(
         if not k:
             prog("Track %s: URL could not be parsed; skipping." % (idx + 1))
             continue
-        body = _s3_get_object_bytes_with_progress(
-            s3,
-            b,
-            k,
-            prog,
-            "Track %s/%s" % (idx + 1, len(tracks_with_audio)),
-            distribution_job_id=distribution_job_id,
-        )
-        md5 = hashlib.md5(body).hexdigest().lower()
-        if idx == 0 and "." in k:
-            audio_ext = k.rsplit(".", 1)[-1].lower() if "." in k else "wav"
-            if audio_ext not in ("wav", "flac", "mp3", "aac"):
-                audio_ext = "wav"
-        file_info[f"track_{idx}"] = {"size": len(body), "md5": md5}
         remote_audio_name = f"{upc}_01_{idx + 1:03d}.{audio_ext}"
-        to_upload.append((remote_audio_name, body))
-        logger.info("Track %s: %s bytes, md5=%s", idx + 1, len(body), md5)
+        if idx == 0 and "." in k:
+            ext = k.rsplit(".", 1)[-1].lower()
+            if ext in ("wav", "flac", "mp3", "aac"):
+                audio_ext = ext
+        remote_audio_name = f"{upc}_01_{idx + 1:03d}.{audio_ext}"
+
+        if _s3_should_spill_to_disk(s3, b, k):
+            tpath, tsz, tmd5 = _s3_stream_to_tempfile_with_md5(
+                s3,
+                b,
+                k,
+                prog,
+                "Track %s/%s" % (idx + 1, len(tracks_with_audio)),
+                distribution_job_id=distribution_job_id,
+            )
+            file_info[f"track_{idx}"] = {"size": tsz, "md5": tmd5}
+            to_upload.append((remote_audio_name, tpath))
+            logger.info("Track %s: %s bytes (disk), md5=%s", idx + 1, tsz, tmd5)
+        else:
+            body = _s3_get_object_bytes_with_progress(
+                s3,
+                b,
+                k,
+                prog,
+                "Track %s/%s" % (idx + 1, len(tracks_with_audio)),
+                distribution_job_id=distribution_job_id,
+            )
+            md5 = hashlib.md5(body).hexdigest().lower()
+            file_info[f"track_{idx}"] = {"size": len(body), "md5": md5}
+            to_upload.append((remote_audio_name, body))
+            logger.info("Track %s: %s bytes, md5=%s", idx + 1, len(body), md5)
 
         if _release_apple_atmos_enabled(release):
             atmos_url = (getattr(track, "apple_music_dolby_atmos_url", None) or "").strip()
@@ -360,7 +376,8 @@ def _gather_apple_assets_and_file_info(
                 if not ak:
                     prog("Track %s: Dolby Atmos URL could not be parsed; skipping Atmos file." % (idx + 1))
                 else:
-                    atmos_body = _s3_get_object_bytes_with_progress(
+                    # Atmos masters are often 1GB+ — always stream to disk + incremental MD5 (avoids RAM blowups).
+                    apath, asz, atmos_md5 = _s3_stream_to_tempfile_with_md5(
                         s3,
                         ab,
                         ak,
@@ -368,17 +385,16 @@ def _gather_apple_assets_and_file_info(
                         "Track %s Dolby Atmos" % (idx + 1),
                         distribution_job_id=distribution_job_id,
                     )
-                    atmos_md5 = hashlib.md5(atmos_body).hexdigest().lower()
                     file_info[f"track_{idx}_atmos"] = {
-                        "size": len(atmos_body),
+                        "size": asz,
                         "md5": atmos_md5,
                     }
                     remote_atmos = f"{upc}_01_{idx + 1:03d}_atmos.wav"
-                    to_upload.append((remote_atmos, atmos_body))
+                    to_upload.append((remote_atmos, apath))
                     logger.info(
-                        "Track %s Dolby Atmos: %s bytes, md5=%s",
+                        "Track %s Dolby Atmos: %s bytes (disk), md5=%s",
                         idx + 1,
-                        len(atmos_body),
+                        asz,
                         atmos_md5,
                     )
 
@@ -481,6 +497,114 @@ def _s3_get_object_bytes_with_progress(
     data = b"".join(chunks)
     prog("%s done: %.1f MB total (merged)." % (label, len(data) / (1024 * 1024)))
     return data
+
+
+def _spill_threshold_bytes() -> int:
+    """Objects at or above this size use disk + streaming MD5 (avoids 2× RAM for join + hash)."""
+    try:
+        mb = int((os.getenv("MERLIN_BRIDGE_SPILL_TO_DISK_MB") or "500").strip())
+    except ValueError:
+        mb = 500
+    mb = max(50, mb)
+    return mb * 1024 * 1024
+
+
+def _s3_should_spill_to_disk(s3, bucket: str, key: str) -> bool:
+    try:
+        head = s3.head_object(Bucket=bucket, Key=key)
+        return int(head.get("ContentLength") or 0) >= _spill_threshold_bytes()
+    except Exception:
+        # If head fails, prefer disk path to avoid OOM on unknown huge objects
+        return True
+
+
+def _s3_stream_to_tempfile_with_md5(
+    s3,
+    bucket: str,
+    key: str,
+    prog,
+    label: str,
+    *,
+    report_every_bytes: int = 10 * 1024 * 1024,
+    read_chunk_size: int = 8 * 1024 * 1024,
+    distribution_job_id: Optional[int] = None,
+) -> Tuple[str, int, str]:
+    """
+    Stream S3 object to a temp file and compute MD5 incrementally.
+    Avoids holding the full object in RAM (fixes long 'stuck at 98%' + OOM on ~1GB+ masters).
+
+    Returns (temp_path, size_bytes, md5_hex). Caller must unlink temp_path when done.
+    """
+    total = 0
+    try:
+        head = s3.head_object(Bucket=bucket, Key=key)
+        total = int(head.get("ContentLength") or 0)
+    except Exception as head_exc:
+        logger.debug("HeadObject before stream-to-disk %s/%s: %s", bucket, key, head_exc)
+
+    key_disp = (key[:70] + "…") if len(key) > 70 else key
+    if total > 0:
+        prog(
+            "%s (~%.1f MB) bucket=%s key=%s — streaming to disk (low memory)…"
+            % (label, total / (1024 * 1024), bucket, key_disp)
+        )
+    else:
+        prog("%s bucket=%s key=%s — streaming to disk…" % (label, bucket, key_disp))
+
+    fd, path = tempfile.mkstemp(prefix="merlin_s3_", suffix=".bin")
+    os.close(fd)
+    h = hashlib.md5()
+    downloaded = 0
+    next_report_at = report_every_bytes
+
+    try:
+        obj = s3.get_object(Bucket=bucket, Key=key)
+        body = obj["Body"]
+        with open(path, "wb") as out:
+            while True:
+                if distribution_job_id:
+                    from releases.distribution_job_progress import (
+                        is_distribution_job_cancel_requested,
+                    )
+
+                    if is_distribution_job_cancel_requested(distribution_job_id):
+                        prog("%s — cancelled (stop requested)." % label)
+                        raise MerlinDownloadCancelled(
+                            "Distribution cancelled while downloading from S3 (large file)."
+                        )
+                chunk = body.read(read_chunk_size)
+                if not chunk:
+                    break
+                out.write(chunk)
+                h.update(chunk)
+                downloaded += len(chunk)
+                if total > 0 and downloaded >= next_report_at:
+                    pct = min(100.0, 100.0 * downloaded / total)
+                    prog(
+                        "  %s progress: %.1f / %.1f MB (%.0f%%)"
+                        % (
+                            label,
+                            downloaded / (1024 * 1024),
+                            total / (1024 * 1024),
+                            pct,
+                        )
+                    )
+                    while next_report_at <= downloaded:
+                        next_report_at += report_every_bytes
+
+        size = os.path.getsize(path)
+        md5_hex = h.hexdigest().lower()
+        prog(
+            "%s done: %.1f MB on disk, md5=%s… (streaming)"
+            % (label, size / (1024 * 1024), md5_hex[:12])
+        )
+        return (path, size, md5_hex)
+    except Exception:
+        try:
+            os.unlink(path)
+        except OSError:
+            pass
+        raise
 
 
 def _gather_apple_metadata_update_file_info(
@@ -661,7 +785,7 @@ def _upload_merlin_bridge_apple_to_sftp(
                 progress=progress,
                 distribution_job_id=distribution_job_id,
             )
-            to_upload: List[Tuple[str, bytes]] = []
+            to_upload: List[Tuple[str, Union[bytes, str]]] = []
         else:
             file_info, to_upload, audio_ext = _gather_apple_assets_and_file_info(
                 release,
@@ -689,12 +813,26 @@ def _upload_merlin_bridge_apple_to_sftp(
     METADATA_FILENAME = "metadata.xml"
     PACKAGE_DIR = f"{upc}.itmsp/"
     zip_buffer = BytesIO()
-    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
-        zf.writestr(f"{PACKAGE_DIR}{METADATA_FILENAME}", xml_content.encode("utf-8"))
-        for remote_name, body in to_upload:
-            zf.writestr(f"{PACKAGE_DIR}{remote_name}", body)
-    zip_buffer.seek(0)
-    zip_bytes = zip_buffer.getvalue()
+    temp_paths_to_unlink: List[str] = []
+    try:
+        with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+            zf.writestr(f"{PACKAGE_DIR}{METADATA_FILENAME}", xml_content.encode("utf-8"))
+            for remote_name, body in to_upload:
+                arc = f"{PACKAGE_DIR}{remote_name}"
+                if isinstance(body, (bytes, bytearray)):
+                    zf.writestr(arc, body)
+                else:
+                    p = str(body)
+                    zf.write(p, arcname=arc)
+                    temp_paths_to_unlink.append(p)
+        zip_buffer.seek(0)
+        zip_bytes = zip_buffer.getvalue()
+    finally:
+        for p in temp_paths_to_unlink:
+            try:
+                os.unlink(p)
+            except OSError:
+                pass
     prog(f"Package built ({len(zip_bytes) // 1024} KB). Connecting to Merlin Bridge SFTP...")
 
     base_path = (os.getenv("MERLIN_BRIDGE_SFTP_REMOTE_PATH") or "").strip().rstrip("/")
