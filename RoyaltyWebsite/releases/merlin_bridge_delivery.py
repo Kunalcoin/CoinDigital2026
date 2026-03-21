@@ -469,8 +469,17 @@ def _s3_get_object_bytes_with_progress(
             while next_report_at <= downloaded:
                 next_report_at += report_every_bytes
 
+    # Last ~2–5% in the UI often looks "stuck": network download is done but we still merge
+    # ~1GB+ of chunk buffers into one bytes object (can take 1–5+ min) with no progress between
+    # percentage lines. Tell the operator explicitly.
+    nchunks = len(chunks)
+    mb_dl = downloaded / (1024 * 1024)
+    prog(
+        "%s — S3 stream finished (~%.1f MB). Merging %d chunks in memory (can take 1–5 min; UI %% may pause here)…"
+        % (label, mb_dl, nchunks)
+    )
     data = b"".join(chunks)
-    prog("%s done: %.1f MB total." % (label, len(data) / (1024 * 1024)))
+    prog("%s done: %.1f MB total (merged)." % (label, len(data) / (1024 * 1024)))
     return data
 
 
