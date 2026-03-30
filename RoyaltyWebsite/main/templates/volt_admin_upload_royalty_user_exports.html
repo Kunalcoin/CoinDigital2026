@@ -1,0 +1,100 @@
+{% extends 'volt_base.html' %}
+{% load static %}
+{% block content %}
+<div class="row">
+  <div class="col-12 mb-4">
+    <div class="card border-0 shadow components-section">
+      <div class="card-header card-header-primary">
+        <h3 class="card-title">Upload bulk royalty file → split per user (S3)</h3>
+      </div>
+      <div class="card-body">
+        <p class="text-muted">
+          Upload one <strong>.xlsx</strong> or <strong>.csv</strong> where <em>each row</em> includes the account email
+          in <code>user</code>, <code>recipient_email</code>, or <code>email</code>.
+          Choose the <strong>confirmed sales month</strong> (same idea as royalty statements): users will see that month on their download page.
+          Re-uploading the same month replaces that user’s file for that month only.
+          Files expire after <strong>{{ retention_days }}</strong> days — run <code>manage.py purge_expired_royalty_exports</code> daily.
+        </p>
+        {% if not s3_configured %}
+        <div class="alert alert-warning">
+          <strong>AWS_STORAGE_BUCKET_NAME</strong> is not set. Configure S3 before using this feature.
+        </div>
+        {% endif %}
+        <form id="bulk_export_form" enctype="multipart/form-data">
+          {% csrf_token %}
+          <div class="row mb-3">
+            <div class="col-md-4">
+              <label class="form-label">Confirmed sales month <span class="text-danger">*</span></label>
+              <select class="form-select" name="report_month" id="report_month" required>
+                <option value="1" {% if default_report_month == 1 %}selected{% endif %}>January</option>
+                <option value="2" {% if default_report_month == 2 %}selected{% endif %}>February</option>
+                <option value="3" {% if default_report_month == 3 %}selected{% endif %}>March</option>
+                <option value="4" {% if default_report_month == 4 %}selected{% endif %}>April</option>
+                <option value="5" {% if default_report_month == 5 %}selected{% endif %}>May</option>
+                <option value="6" {% if default_report_month == 6 %}selected{% endif %}>June</option>
+                <option value="7" {% if default_report_month == 7 %}selected{% endif %}>July</option>
+                <option value="8" {% if default_report_month == 8 %}selected{% endif %}>August</option>
+                <option value="9" {% if default_report_month == 9 %}selected{% endif %}>September</option>
+                <option value="10" {% if default_report_month == 10 %}selected{% endif %}>October</option>
+                <option value="11" {% if default_report_month == 11 %}selected{% endif %}>November</option>
+                <option value="12" {% if default_report_month == 12 %}selected{% endif %}>December</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Year <span class="text-danger">*</span></label>
+              <select class="form-select" name="report_year" id="report_year" required>
+                {% for y in report_years %}
+                <option value="{{ y }}" {% if y == default_report_year %}selected{% endif %}>{{ y }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Optional note (shown to users as subtitle)</label>
+            <input type="text" class="form-control" name="batch_label" id="batch_label" maxlength="255"
+              placeholder="e.g. Final reconciliation" />
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Spreadsheet</label>
+            <input type="file" class="form-control" name="royalty_user_bulk_file" id="royalty_user_bulk_file"
+              accept=".xlsx,.csv" required />
+          </div>
+          <button type="submit" class="btn btn-primary" {% if not s3_configured %}disabled{% endif %}>
+            Upload &amp; split
+          </button>
+        </form>
+        <pre id="bulk_export_result" class="mt-3 small bg-light p-2 border" style="display:none;"></pre>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+  document.getElementById("bulk_export_form").addEventListener("submit", function (ev) {
+    ev.preventDefault();
+    var form = ev.target;
+    var fd = new FormData(form);
+    var out = document.getElementById("bulk_export_result");
+    out.style.display = "block";
+    out.textContent = "Uploading…";
+    fetch(form.action || window.location.pathname, {
+      method: "POST",
+      headers: { "X-CSRFToken": fd.get("csrfmiddlewaretoken") },
+      body: fd,
+    })
+      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (x) {
+        out.textContent = JSON.stringify(x.j, null, 2);
+        if (x.j.success) {
+          out.classList.remove("border-danger");
+          out.classList.add("border-success");
+        } else {
+          out.classList.add("border-danger");
+        }
+      })
+      .catch(function (e) {
+        out.textContent = "Error: " + e;
+        out.classList.add("border-danger");
+      });
+  });
+</script>
+{% endblock %}

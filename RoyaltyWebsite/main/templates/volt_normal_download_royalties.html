@@ -5,7 +5,44 @@
     <div class="col-12 mb-4">
       <div class="card border-0 shadow components-section">
         <div class="card-header card-header-primary">
-            <h3 class="card-title">Download Royalties Report</h3>
+          <h3 class="card-title">Download by confirmed sales month</h3>
+        </div>
+        <div class="card-body">
+          <p class="text-muted small">
+            Each row is your royalty data for <strong>that calendar month</strong> (the same “confirmed sales month”
+            the admin selected when uploading). Up to the <strong>latest 12 months</strong> that have a file for you are listed.
+            Click <strong>Download CSV</strong> for the month you need. The link is short-lived; run the download again if it expires.
+          </p>
+          <button type="button" class="btn btn-sm btn-outline-primary mb-2" onclick="loadMyRoyaltyExports()">
+            Refresh list
+          </button>
+          <div id="my_royalty_exports_scroll"
+            class="border rounded"
+            style="max-height: 22rem; overflow-y: auto;">
+            <table class="table table-flush table-sm mb-0" id="my_royalty_exports_table">
+              <thead class="thead-light sticky-top bg-white" style="z-index: 1;">
+                <tr>
+                  <th>Confirmed sales month</th>
+                  <th>Note</th>
+                  <th>Rows</th>
+                  <th>Available until</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="my_royalty_exports_body">
+                <tr><td colspan="5" class="text-muted">Loading…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="row">
+    <div class="col-12 mb-4">
+      <div class="card border-0 shadow components-section">
+        <div class="card-header card-header-primary">
+            <h3 class="card-title">Request report from database (email)</h3>
         </div>
         <div class="card-body">
           <div class="row mb-4">
@@ -168,6 +205,37 @@
     function createDate(dt) {
             return String((dt.getMonth()+1)) + "/" + String(dt.getFullYear())
         }
+</script>
+<script>
+    function loadMyRoyaltyExports() {
+        var tb = document.getElementById("my_royalty_exports_body");
+        tb.innerHTML = '<tr><td colspan="5" class="text-muted">Loading…</td></tr>';
+        fetch("/api/my_royalty_exports/")
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                tb.innerHTML = "";
+                if (!data.exports || data.exports.length === 0) {
+                    tb.innerHTML = '<tr><td colspan="5" class="text-muted">No monthly files yet. Ask your administrator to upload this month&apos;s report.</td></tr>';
+                    return;
+                }
+                data.exports.forEach(function (ex) {
+                    var tr = document.createElement("tr");
+                    var dl = "/royalty_user_export/download/" + ex.id + "/";
+                    var month = ex.month_label || (ex.report_period || "").slice(0, 7) || "—";
+                    tr.innerHTML =
+                        "<td><strong>" + month + "</strong></td>" +
+                        "<td>" + (ex.batch_label || "—") + "</td>" +
+                        "<td>" + ex.row_count + "</td>" +
+                        "<td>" + (ex.expires_at || "").replace("T", " ").slice(0, 10) + "</td>" +
+                        '<td><a class="btn btn-sm btn-primary" href="' + dl + '">Download CSV</a></td>';
+                    tb.appendChild(tr);
+                });
+            })
+            .catch(function () {
+                tb.innerHTML = '<tr><td colspan="5" class="text-danger">Could not load list.</td></tr>';
+            });
+    }
+    document.addEventListener("DOMContentLoaded", loadMyRoyaltyExports);
 </script>
 <script>
     function download_royalties() {

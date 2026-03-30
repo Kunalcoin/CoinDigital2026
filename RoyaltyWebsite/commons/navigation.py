@@ -7,6 +7,7 @@ navigation = {
         "Payments": "payments",
         "Insert User": "person_add",
         "Balance Reports": "summarize",
+        "User royalty files (S3)": "folder_zip",
         "Releases": "library_music",
         "Change Password": "password"
     },

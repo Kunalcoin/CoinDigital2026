@@ -1,3 +1,5 @@
+import uuid
+
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager
 from django.db import models
 from django.utils import timezone
@@ -313,3 +315,49 @@ class Payment(models.Model):
 
     def __str__(self):
         return f"{self.username} - {self.amount_paid} on {self.date_of_payment}"
+
+
+class RoyaltyUserExport(models.Model):
+    """
+    One row per user-specific CSV stored in S3 (split from an admin bulk upload).
+    Heavy row data stays in S3; PostgreSQL/MySQL only keeps pointers + expiry.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    owner_email = models.EmailField(db_index=True)
+    batch_id = models.UUIDField(db_index=True, editable=False)
+    s3_key = models.CharField(max_length=512)
+    row_count = models.PositiveIntegerField(default=0)
+    batch_label = models.CharField(
+        max_length=255,
+        blank=True,
+        default="",
+        help_text="Optional extra label from admin upload form.",
+    )
+    report_period = models.DateField(
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text="First day of confirmed sales month (e.g. 2026-02-01 = February 2026).",
+    )
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    expires_at = models.DateTimeField(db_index=True)
+    uploaded_by = models.ForeignKey(
+        CDUser,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="royalty_user_exports_uploaded",
+    )
+
+    class Meta:
+        ordering = ["-report_period", "-created_at"]
+        indexes = [
+            models.Index(fields=["owner_email", "expires_at"]),
+            models.Index(fields=["owner_email", "report_period"]),
+            models.Index(fields=["batch_id"]),
+        ]
+
+    def __str__(self):
+        rp = self.report_period.isoformat() if self.report_period else "—"
+        return f"{self.owner_email} — {rp} ({self.row_count} rows)"
