@@ -255,6 +255,20 @@ AWS_DEFAULT_ACL = None
 AWS_QUERYSTRING_EXPIRE = 157784630
 AWS_S3_ADDRESSING_STYLE = "virtual"
 DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
+
+# Per-user royalty CSV exports (S3 prefix; DB stores only metadata)
+ROYALTY_EXPORT_S3_PREFIX = os.environ.get(
+    "ROYALTY_EXPORT_S3_PREFIX", "royalty-user-exports"
+)
+ROYALTY_EXPORT_RETENTION_DAYS = int(
+    os.environ.get("ROYALTY_EXPORT_RETENTION_DAYS", "365")
+)
+ROYALTY_EXPORT_PRESIGNED_EXPIRE_SECONDS = int(
+    os.environ.get("ROYALTY_EXPORT_PRESIGNED_EXPIRE_SECONDS", "900")
+)
+ROYALTY_EXPORT_MONTHS_SHOWN = int(
+    os.environ.get("ROYALTY_EXPORT_MONTHS_SHOWN", "12")
+)
 EMAIL_BACKEND = "django_ses.SESBackend"
 
 

@@ -390,6 +390,16 @@
             <span class="sidebar-text">Balance Reports</span>
           </a>
         </li>
+        <li class="nav-item {% if request.path == '/admin_royalty_user_exports/' %} active {% endif %}">
+          <a href="/admin_royalty_user_exports/" class="nav-link">
+            <span class="sidebar-icon">
+              <span class="material-symbols-outlined">
+                folder_zip
+              </span>
+            </span>
+            <span class="sidebar-text">User royalty files (S3)</span>
+          </a>
+        </li>
         <li role="separator" class="dropdown-divider mt-4 mb-3 border-gray-700"></li>
         <li class="nav-item {% if 'releases/artists' in request.path %} active {% endif %}">
           <a href="/releases/artists/" class="nav-link d-flex align-items-center justify-content-between">

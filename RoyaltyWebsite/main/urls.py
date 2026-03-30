@@ -48,6 +48,21 @@ urlpatterns = [
     path('get_month_payments/<str:month>', views.get_month_payments, name='get_month_payments'), # Admin working: ✅ || intermediate working: ✅ || normal working: ✅
     
     path('download_royalties', views.download_royalties, name='download_royalties'), # Only normal has access Working
+    path(
+        'admin_royalty_user_exports/',
+        views.admin_royalty_user_exports,
+        name='admin_royalty_user_exports',
+    ),
+    path(
+        'api/my_royalty_exports/',
+        views.api_my_royalty_exports,
+        name='api_my_royalty_exports',
+    ),
+    path(
+        'royalty_user_export/download/<uuid:export_id>/',
+        views.download_royalty_user_export,
+        name='download_royalty_user_export',
+    ),
     path('get_royalties_data/<str:field_category>/<str:field>/<str:start_date>/<str:end_date>', views.get_royalties_data, name='get_royalties_data'), # TODO: Need conversion and verification
     
     path('fetch_track_channels', views.fetch_track_channels, name='fetch_track_channels'), # Admin working: ✅ || intermediate working: ✅ || normal working: ✅

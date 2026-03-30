@@ -5,7 +5,16 @@ from django.utils.html import format_html
 from django.urls import reverse
 from django.utils.safestring import mark_safe
 from django import forms
-from .models import CDUser, Ratio, DueAmount, Request, Sharing, Announcement, Payment
+from .models import (
+    CDUser,
+    Ratio,
+    DueAmount,
+    Request,
+    Sharing,
+    Announcement,
+    Payment,
+    RoyaltyUserExport,
+)
 
 
 class CDUserAdminForm(forms.ModelForm):
@@ -329,4 +338,21 @@ class PaymentAdmin(admin.ModelAdmin):
         if obj:  # Editing existing object
             return ['transfer_id', 'date_of_payment']
         return []
+
+
+@admin.register(RoyaltyUserExport)
+class RoyaltyUserExportAdmin(admin.ModelAdmin):
+    list_display = [
+        "owner_email",
+        "report_period",
+        "batch_id",
+        "row_count",
+        "batch_label",
+        "created_at",
+        "expires_at",
+    ]
+    list_filter = ["created_at", "expires_at"]
+    search_fields = ["owner_email", "batch_label", "s3_key"]
+    ordering = ["-created_at"]
+    readonly_fields = ["id", "created_at"]
 

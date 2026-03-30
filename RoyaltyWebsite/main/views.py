@@ -1,10 +1,12 @@
 # Standard library
+import io
 import logging
+import uuid
 logger = logging.getLogger(__name__)
 import json
 import traceback
 import calendar
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from subprocess import Popen
 from collections import defaultdict
 from releases.models import Track, SplitReleaseRoyalty, Release  # Add these imports if not present
@@ -18,8 +20,9 @@ from django.db.models import (
     Sum, Q, Case, When, Value, OuterRef, Subquery, DecimalField, F
 )
 from django.db.models.functions import TruncMonth, Round
-from django.http import HttpResponse, HttpResponseNotFound, JsonResponse
-from django.shortcuts import render, redirect
+from django.http import HttpResponse, HttpResponseNotFound, JsonResponse, HttpResponseForbidden
+from django.shortcuts import render, redirect, get_object_or_404
+from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 
 # Third-party imports
@@ -28,7 +31,13 @@ import pandas as pd
 # Local app imports
 from .models import (
     CDUser, Ratio, Request, Payment, DueAmount,
-    Announcement, LANGUAGES, COUNTRIES
+    Announcement, LANGUAGES, COUNTRIES, RoyaltyUserExport,
+)
+from .royalty_export_s3 import (
+    delete_royalty_export_object,
+    presigned_get_url,
+    royalty_export_bucket,
+    upload_royalty_export_csv,
 )
 from .processor import processor, admin, intermediate, normal
 from .reset_token_handler import TokenHandler
@@ -1183,6 +1192,250 @@ def download_royalties(request):
         )
     else:
         return HttpResponseNotFound("<h2>Authentication Failed!</h2>")
+
+
+def _dataframe_normalize_owner_column(df):
+    colmap = {str(c).strip().lower(): c for c in df.columns}
+    for key in ("user", "recipient_email", "email"):
+        if key in colmap:
+            return df.rename(columns={colmap[key]: "_owner_email"})
+    raise ValueError(
+        "Missing owner column. The sheet must include one of: "
+        "user, recipient_email, email"
+    )
+
+
+def admin_royalty_user_exports(request):
+    """Admin: page (GET) or upload bulk spreadsheet split per user → S3 (POST)."""
+    requesting_user_role = processor.get_user_role(request.user)
+    if not request.user.is_authenticated or not is_active(request.user):
+        return HttpResponseNotFound("<h2>Authentication Failed!</h2>")
+    if requesting_user_role != "admin":
+        return HttpResponseForbidden("<h2>Admin only</h2>")
+    if request.method == "GET":
+        now = timezone.now()
+        return render(
+            request,
+            "volt_admin_upload_royalty_user_exports.html",
+            context={
+                "username": request.user,
+                "navigation": get_navigation(
+                    "user_royalty_files_(s3)", _navigation["admin"]
+                ),
+                "requesting_user_role": requesting_user_role,
+                "s3_configured": bool(royalty_export_bucket()),
+                "retention_days": getattr(
+                    settings, "ROYALTY_EXPORT_RETENTION_DAYS", 365
+                ),
+                "report_years": range(now.year, now.year - 8, -1),
+                "default_report_month": now.month,
+                "default_report_year": now.year,
+            },
+        )
+    try:
+        report_month = request.POST.get("report_month")
+        report_year = request.POST.get("report_year")
+        if not report_month or not report_year:
+            return JsonResponse(
+                {
+                    "success": False,
+                    "error": "Confirmed sales month and year are required.",
+                },
+                status=400,
+            )
+        try:
+            m_int = int(report_month)
+            y_int = int(report_year)
+            report_period = date(y_int, m_int, 1)
+        except (TypeError, ValueError):
+            return JsonResponse(
+                {"success": False, "error": "Invalid month or year."},
+                status=400,
+            )
+        if m_int < 1 or m_int > 12:
+            return JsonResponse(
+                {"success": False, "error": "Month must be 1–12."},
+                status=400,
+            )
+
+        f = request.FILES.get("royalty_user_bulk_file")
+        if not f:
+            return JsonResponse({"success": False, "error": "No file uploaded."}, status=400)
+        raw = f.read()
+        name = (f.name or "").lower()
+        if name.endswith(".csv"):
+            df = pd.read_csv(io.BytesIO(raw))
+        else:
+            df = pd.read_excel(io.BytesIO(raw), engine="openpyxl")
+        df = _dataframe_normalize_owner_column(df)
+        df["_owner_email"] = df["_owner_email"].apply(
+            lambda x: str(x).strip().lower() if pd.notna(x) else ""
+        )
+        df = df[df["_owner_email"].str.len() > 0]
+        if df.empty:
+            return JsonResponse(
+                {"success": False, "error": "No rows with a non-empty user email."},
+                status=400,
+            )
+        canonical_by_lower = {
+            str(e).strip().lower(): str(e).strip()
+            for e in CDUser.objects.filter(is_active=True).values_list("email", flat=True)
+        }
+        if not canonical_by_lower:
+            return JsonResponse(
+                {"success": False, "error": "No active users in database."},
+                status=400,
+            )
+        if not royalty_export_bucket():
+            return JsonResponse(
+                {
+                    "success": False,
+                    "error": "AWS_STORAGE_BUCKET_NAME is not set; cannot upload to S3.",
+                },
+                status=500,
+            )
+        batch_id = uuid.uuid4()
+        batch_label = (request.POST.get("batch_label") or "")[:255]
+        retention_days = getattr(settings, "ROYALTY_EXPORT_RETENTION_DAYS", 365)
+        expires_at = timezone.now() + timedelta(days=retention_days)
+        prefix = (getattr(settings, "ROYALTY_EXPORT_S3_PREFIX", "royalty-user-exports") or "royalty-user-exports").strip("/")
+        period_label = f"{calendar.month_name[report_period.month]} {report_period.year}"
+
+        to_create = []
+        skipped_rows = 0
+        for em_lower, chunk in df.groupby("_owner_email"):
+            if em_lower not in canonical_by_lower:
+                skipped_rows += len(chunk)
+                continue
+            owner = canonical_by_lower[em_lower]
+            for old in RoyaltyUserExport.objects.filter(
+                owner_email__iexact=owner,
+                report_period=report_period,
+            ):
+                delete_royalty_export_object(old.s3_key)
+                old.delete()
+            out = chunk.drop(columns=["_owner_email"], errors="ignore")
+            sio = io.StringIO()
+            out.to_csv(sio, index=False)
+            csv_bytes = sio.getvalue().encode("utf-8")
+            safe_key_part = (
+                em_lower.replace("@", "_at_").replace("/", "_").replace("\\", "_")
+            )
+            s3_period = report_period.strftime("%Y-%m")
+            s3_key = f"{prefix}/{batch_id}/{s3_period}/{safe_key_part}.csv"
+            upload_royalty_export_csv(s3_key, csv_bytes)
+            to_create.append(
+                RoyaltyUserExport(
+                    id=uuid.uuid4(),
+                    owner_email=owner,
+                    batch_id=batch_id,
+                    s3_key=s3_key,
+                    row_count=len(chunk),
+                    batch_label=batch_label or period_label,
+                    report_period=report_period,
+                    expires_at=expires_at,
+                    uploaded_by=request.user,
+                )
+            )
+        if not to_create:
+            return JsonResponse(
+                {
+                    "success": False,
+                    "error": "No rows matched an active user email.",
+                    "skipped_rows": skipped_rows,
+                },
+                status=400,
+            )
+        RoyaltyUserExport.objects.bulk_create(to_create, batch_size=500)
+        return JsonResponse(
+            {
+                "success": True,
+                "message": "Files uploaded to S3 and linked for users.",
+                "batch_id": str(batch_id),
+                "files_created": len(to_create),
+                "skipped_rows": skipped_rows,
+                "retention_days": retention_days,
+                "confirmed_sales_month": period_label,
+                "report_period": report_period.isoformat(),
+            }
+        )
+    except ValueError as e:
+        return JsonResponse({"success": False, "error": str(e)}, status=400)
+    except Exception as e:
+        logger.exception("admin_royalty_user_exports upload failed")
+        return JsonResponse({"success": False, "error": str(e)}, status=500)
+
+
+def api_my_royalty_exports(request):
+    """Latest monthly exports (confirmed sales month); max 12 by default."""
+    if not request.user.is_authenticated or not is_active(request.user):
+        return JsonResponse({"error": "Authentication required"}, status=401)
+    now = timezone.now()
+    max_months = getattr(settings, "ROYALTY_EXPORT_MONTHS_SHOWN", 12)
+    qs = (
+        RoyaltyUserExport.objects.filter(
+            owner_email__iexact=request.user.email,
+            expires_at__gte=now,
+            report_period__isnull=False,
+        )
+        .order_by("-report_period")
+    )
+    rows = list(
+        qs.values(
+            "id",
+            "batch_id",
+            "batch_label",
+            "row_count",
+            "created_at",
+            "expires_at",
+            "report_period",
+        )[: max(1, max_months)]
+    )
+    data = []
+    for r in rows:
+        rp = r["report_period"]
+        if rp:
+            month_label = f"{calendar.month_name[rp.month]} {rp.year}"
+            period_iso = rp.isoformat()
+        else:
+            month_label = ""
+            period_iso = None
+        data.append(
+            {
+                "id": str(r["id"]),
+                "batch_id": str(r["batch_id"]),
+                "batch_label": r["batch_label"] or "",
+                "month_label": month_label,
+                "report_period": period_iso,
+                "row_count": r["row_count"],
+                "created_at": r["created_at"].isoformat() if r["created_at"] else None,
+                "expires_at": r["expires_at"].isoformat() if r["expires_at"] else None,
+            }
+        )
+    return JsonResponse({"exports": data})
+
+
+def download_royalty_user_export(request, export_id):
+    """Redirect to S3 presigned URL if this export belongs to the current user."""
+    if not request.user.is_authenticated or not is_active(request.user):
+        return HttpResponseNotFound("<h2>Authentication Failed!</h2>")
+    export_obj = get_object_or_404(RoyaltyUserExport, pk=export_id)
+    if export_obj.owner_email.lower() != request.user.email.lower():
+        return HttpResponseForbidden("Not your file.")
+    if export_obj.expires_at < timezone.now():
+        return HttpResponseForbidden("This download has expired.")
+    if not royalty_export_bucket():
+        return HttpResponse("S3 not configured", status=500)
+    sec = getattr(settings, "ROYALTY_EXPORT_PRESIGNED_EXPIRE_SECONDS", 900)
+    if export_obj.report_period:
+        period_part = export_obj.report_period.strftime("%Y-%m")
+    else:
+        period_part = export_obj.created_at.date().strftime("%Y-%m-%d")
+    fname = (
+        f"royalties_{export_obj.owner_email.split('@')[0]}_{period_part}.csv"
+    ).replace(" ", "")
+    url = presigned_get_url(export_obj.s3_key, sec, fname)
+    return redirect(url)
 
 
 # New ORM-based implementation
