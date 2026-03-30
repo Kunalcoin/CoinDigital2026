@@ -74,7 +74,15 @@ class CDUserAdmin(BaseUserAdmin):
             'classes': ('collapse',)
         }),
         ('Permissions', {
-            'fields': ('role', 'is_active', 'is_staff', 'is_superuser', 'parent'),
+            'fields': (
+                'role',
+                'is_active',
+                'is_staff',
+                'is_superuser',
+                'parent',
+                'split_royalties_enabled',
+                'apple_music_dolby_atmos_enabled',
+            ),
             'classes': ('collapse',)
         }),
         ('Important Dates', {

@@ -43,6 +43,7 @@ def run_list():
             WHERE track LIKE "b'%%" OR track LIKE 'b"%%'
                OR `release` LIKE "b'%%" OR `release` LIKE 'b"%%'
                OR (label_name IS NOT NULL AND (label_name LIKE "b'%%" OR label_name LIKE 'b"%%'))
+               OR (display_artist IS NOT NULL AND (display_artist LIKE "b'%%" OR display_artist LIKE 'b"%%'))
             ORDER BY user, track
             """
         )
@@ -112,10 +113,16 @@ def run_update():
                 WHEN label_name LIKE "b'%%" AND label_name LIKE "%%'" THEN SUBSTRING(label_name, 3, CHAR_LENGTH(label_name) - 3)
                 WHEN label_name LIKE 'b"%%' AND label_name LIKE '%%"' THEN SUBSTRING(label_name, 3, CHAR_LENGTH(label_name) - 3)
                 ELSE label_name
+              END,
+              display_artist = CASE
+                WHEN display_artist LIKE "b'%%" AND display_artist LIKE "%%'" THEN SUBSTRING(display_artist, 3, CHAR_LENGTH(display_artist) - 3)
+                WHEN display_artist LIKE 'b"%%' AND display_artist LIKE '%%"' THEN SUBSTRING(display_artist, 3, CHAR_LENGTH(display_artist) - 3)
+                ELSE display_artist
               END
             WHERE track LIKE "b'%%" OR track LIKE 'b"%%'
                OR `release` LIKE "b'%%" OR `release` LIKE 'b"%%'
                OR (label_name IS NOT NULL AND (label_name LIKE "b'%%" OR label_name LIKE 'b"%%'))
+               OR (display_artist IS NOT NULL AND (display_artist LIKE "b'%%" OR display_artist LIKE 'b"%%'))
             """
         )
         updated = cursor.rowcount

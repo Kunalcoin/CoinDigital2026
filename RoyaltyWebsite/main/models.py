@@ -40,6 +40,12 @@ class CDUser(AbstractBaseUser):
     is_superuser = models.BooleanField(default=False)
     is_staff = models.BooleanField(default=False)
     split_royalties_enabled = models.BooleanField("Split Royalties", default=False)
+    apple_music_dolby_atmos_enabled = models.BooleanField(
+        "Apple Music Dolby Atmos delivery",
+        default=False,
+        help_text="When enabled, this user’s releases may include Dolby Atmos (BWF ADM .wav) on tracks "
+        "that have an Atmos URL and secondary ISRC; metadata uses <assets> per Apple Music spec.",
+    )
 
     date_joined = models.DateTimeField(default=timezone.now)
     first_name = models.CharField("First Name", max_length=100)
@@ -99,6 +105,10 @@ class CDUser(AbstractBaseUser):
             models.Index(fields=["is_superuser"], name="is_superuser_index"),
             models.Index(fields=["is_staff"], name="is_staff_index"),
             models.Index(fields=["split_royalties_enabled"], name="split_royalties_enabled_index"),
+            models.Index(
+                fields=["apple_music_dolby_atmos_enabled"],
+                name="apple_music_dolby_atmos_idx",
+            ),
             models.Index(fields=["country"], name="country_index"),
             models.Index(fields=["language"], name="language_index"),
             # Analytics optimization indexes

@@ -53,6 +53,16 @@
                 <button id="splitroyalities-update-btn" onclick="update_splitroyalities()" class="btn btn-sm btn-outline-secondary ms-2">Update</button>              </p>
              
             </div>
+            {% if requesting_user_role == "admin" %}
+            <div class="form-check mt-2">
+              <input class="form-check-input" type="checkbox" id="dolbyatmos-checkbox"
+              {% if selected_user.apple_music_dolby_atmos_enabled %}checked{% endif %}>
+              <p class="form-check-label" for="dolbyatmos-checkbox">
+                Apple Music Dolby Atmos delivery
+                <button id="dolbyatmos-update-btn" onclick="update_dolbyatmos()" class="btn btn-sm btn-outline-secondary ms-2">Update</button>
+              </p>
+            </div>
+            {% endif %}
           </div>
           {% endif %}
         </div>
@@ -416,6 +426,28 @@
       btn.disabled = false;
     });
       }
+
+  function update_dolbyatmos() {
+    var enabled = document.getElementById("dolbyatmos-checkbox").checked ? 1 : 0;
+    var btn = document.getElementById("dolbyatmos-update-btn");
+    btn.disabled = true;
+    $.ajax({
+      type: "POST",
+      url: '{% url "edit_apple_music_dolby_atmos_enabled" %}',
+      data: {
+        'dolbyatmos': enabled,
+        'user': "{{ selected_user.id }}",
+        'csrfmiddlewaretoken': '{{ csrf_token }}'
+      }
+    }).then(function (response) {
+      sendSweetAlert('info', '', response.message);
+      btn.disabled = false;
+    }).fail(function (response) {
+      btn.disabled = false;
+      var msg = (response.responseJSON && response.responseJSON.message) ? response.responseJSON.message : 'Update failed.';
+      sendSweetAlert('error', '', msg);
+    });
+  }
     
   
   function remove_user() {

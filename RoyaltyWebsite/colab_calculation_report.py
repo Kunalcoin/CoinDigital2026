@@ -5,10 +5,39 @@ Flow:
 2. For each channel: aggregate by ISRC (sum units, gross_total, INR totals) - unique ISRC per channel
 3. Combine all channels into one calculation file
 """
+import calendar
+from datetime import date
+
 import pandas as pd
 from sqlalchemy import create_engine, text
 import os
 import warnings
+
+
+def current_month_end_iso():
+    """Last calendar day of the current month as YYYY-MM-DD."""
+    today = date.today()
+    last = calendar.monthrange(today.year, today.month)[1]
+    return f"{today.year:04d}-{today.month:02d}-{last:02d}"
+
+
+MISSING_PLACEHOLDER = "NA"
+
+
+def fill_empty_cells_with_na(frame: pd.DataFrame) -> pd.DataFrame:
+    """NaN/NaT, None, and blank strings become MISSING_PLACEHOLDER for CSV export."""
+    out = frame.copy()
+    out = out.fillna(MISSING_PLACEHOLDER)
+    for col in out.columns:
+        if out[col].dtype == object or pd.api.types.is_string_dtype(out[col]):
+            out[col] = [
+                MISSING_PLACEHOLDER
+                if v is None or (isinstance(v, str) and v.strip() == "")
+                else v
+                for v in out[col].tolist()
+            ]
+    return out
+
 
 warnings.filterwarnings("ignore")
 df = None
@@ -73,6 +102,9 @@ def input_file_health_check():
         print("Missing columns:", list(missing_columns))
         return False
     print("All required columns present.")
+    for _col in ("start_date", "end_date"):
+        if _col in df.columns:
+            df[_col] = pd.to_datetime(df[_col], errors="coerce")
     df["isrc"].fillna("INC01", inplace=True)
     return True
 
@@ -177,9 +209,7 @@ def add_computed_fields(calculation_df):
     calculation_df["net_total_INR"] = calculation_df.apply(
         lambda x: x.net_total * x.currency_rate, axis=1
     )
-    calculation_df["confirmed_date"] = (
-        pd.Timestamp.now() + pd.offsets.MonthEnd(0)
-    ).strftime("%Y-%m-%d")
+    calculation_df["confirmed_date"] = current_month_end_iso()
     return calculation_df
 
 def merge_db_and_finalize(calculation_df):
@@ -224,6 +254,10 @@ def main():
     ]
     final_df = final_df[columns]
 
+    total_units = final_df["units"].sum()
+    total_gross = final_df["gross_total"].sum()
+    final_df = fill_empty_cells_with_na(final_df)
+
     create_directory(f"{drive_path}/domain_division/cd/calculation")
     output_path = f"{drive_path}/domain_division/cd/calculation/data.csv"
     final_df.to_csv(output_path, index=False)
@@ -231,8 +265,8 @@ def main():
     print("Royalties calculation report generated!")
     print(f"Output: {output_path}")
     print(f"Total rows: {len(final_df)} (unique ISRC per channel)")
-    print(f"Total units: {final_df['units'].sum():,.0f}")
-    print(f"Total gross: {final_df['gross_total'].sum():,.2f}")
+    print(f"Total units: {total_units:,.0f}")
+    print(f"Total gross: {total_gross:,.2f}")
 
 if __name__ == "__main__":
     main()

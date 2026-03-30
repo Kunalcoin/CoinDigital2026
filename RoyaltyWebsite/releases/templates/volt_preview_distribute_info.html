@@ -228,14 +228,56 @@
         if (!isoValue) return "-";
         try { return new Date(isoValue).toLocaleString(); } catch (e) { return isoValue; }
     }
+    function escapeHtml(s) {
+        if (!s) return "";
+        return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    }
     function formatStoreResult(storeResults) {
         if (!storeResults || Object.keys(storeResults).length === 0) return "-";
         var out = [];
         Object.keys(storeResults).forEach(function (k) {
+            if (k === "_live") return;
             var r = storeResults[k] || {};
             out.push(k + ": " + (r.success ? "ok" : "failed"));
         });
-        return out.join(" | ");
+        return out.length ? out.join(" | ") : "-";
+    }
+    function formatRunningProgress(j) {
+        if ((j.status || "").toLowerCase() !== "running") return "-";
+        var parts = [];
+        var sec = j.elapsed_running_seconds;
+        if (sec != null && sec > 0) {
+            var m = Math.floor(sec / 60);
+            var s = Math.floor(sec % 60);
+            parts.push("Elapsed <strong>" + m + "m " + s + "s</strong>");
+        }
+        if (j.live_step) {
+            parts.push("<span class=\"text-body\">" + escapeHtml(j.live_step) + "</span>");
+        } else {
+            parts.push("<span class=\"text-muted\">Working… (Apple/Merlin status appears when that step runs, after other stores)</span>");
+        }
+        return parts.join("<br>");
+    }
+    function cancelDistributionJob(jobId) {
+        if (!jobId) return;
+        if (!confirm("Cancel this delivery job? Large Apple/Merlin downloads will stop at the next checkpoint.")) return;
+        $.ajax({
+            type: "POST",
+            url: "/releases/{{ primary_uuid }}/ddex-distribution-jobs/" + jobId + "/cancel/",
+            headers: { "X-CSRFToken": getCSRFToken(), "Content-Type": "application/json" },
+            data: JSON.stringify({}),
+            timeout: 60000,
+        }).then(function (response) {
+            if (response.success) {
+                sendSweetAlert("success", "", response.message || "Cancel requested.");
+                refreshDistributionJobs();
+            } else {
+                sendSweetAlert("error", "", response.message || "Cancel failed.");
+            }
+        }).fail(function (xhr) {
+            var msg = (xhr.responseJSON && xhr.responseJSON.message) ? xhr.responseJSON.message : "Cancel failed.";
+            sendSweetAlert("error", "", msg);
+        });
     }
     function refreshDistributionJobs() {
         var body = $("#distribution_jobs_tbody");
@@ -248,10 +290,14 @@
             if (!response.success) return;
             var jobs = response.jobs || [];
             if (!jobs.length) {
-                body.html('<tr><td colspan="8" class="text-muted">No delivery operations yet.</td></tr>');
+                body.html('<tr><td colspan="10" class="text-muted">No delivery operations yet.</td></tr>');
                 return;
             }
             var rows = jobs.map(function (j) {
+                var st = (j.status || "").toLowerCase();
+                var cancelBtn = (st === "running" || st === "queued")
+                    ? '<button type="button" class="btn btn-sm btn-outline-danger" onclick="cancelDistributionJob(' + j.id + ')">Cancel</button>'
+                    : "—";
                 return '<tr>'
                     + '<td>' + j.id + '</td>'
                     + '<td>' + (j.action || '-') + '</td>'
@@ -260,13 +306,15 @@
                     + '<td>' + fmtDateTime(j.requested_at) + '</td>'
                     + '<td>' + fmtDateTime(j.finished_at || j.started_at) + '</td>'
                     + '<td>' + ((j.duration_seconds || 0) + 's') + '</td>'
+                    + '<td class="small">' + formatRunningProgress(j) + '</td>'
                     + '<td>' + formatStoreResult(j.store_results) + '</td>'
+                    + '<td>' + cancelBtn + '</td>'
                     + '</tr>';
             });
             body.html(rows.join(''));
         });
     }
-    setInterval(refreshDistributionJobs, 8000);
+    setInterval(refreshDistributionJobs, 5000);
 </script>
 <div class="row">
     <div class="col">
@@ -535,11 +583,13 @@
                                                 <th>Requested At</th>
                                                 <th>Completed At</th>
                                                 <th>Time Taken</th>
+                                                <th>In progress / Apple (large files)</th>
                                                 <th>Store Status</th>
+                                                <th>Actions</th>
                                             </tr>
                                         </thead>
                                         <tbody id="distribution_jobs_tbody">
-                                            <tr><td colspan="8" class="text-muted">Loading...</td></tr>
+                                            <tr><td colspan="10" class="text-muted">Loading...</td></tr>
                                         </tbody>
                                     </table>
                                 </div>

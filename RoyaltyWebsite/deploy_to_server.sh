@@ -58,6 +58,12 @@ rsync -avz --progress -e "$RSYNC_SSH" \
 
 if [ $? -eq 0 ]; then
   echo "Done. Code is at ${REMOTE_PATH} on the server."
+  echo ""
+  echo "IMPORTANT — Django must read files from this path on the host:"
+  echo "  If docker-compose does NOT bind-mount the app (e.g.  ./RoyaltyWebsite:/app ),"
+  echo "  rsync updates the disk but the container still uses the OLD code from the image."
+  echo "  Fix: add that volume to django_gunicorn, OR rebuild: docker compose build --no-cache django_gunicorn && docker compose up -d"
+  echo ""
   echo "Restart the app so it loads new code:"
   echo "  ssh -i \"$SSH_KEY\" ${SERVER_USER}@${SERVER_HOST}"
   echo "Then on the server: cd ${DEPLOY_DOCKER_PATH:-/home/ubuntu/coin-digital-app} && docker-compose restart django_gunicorn"

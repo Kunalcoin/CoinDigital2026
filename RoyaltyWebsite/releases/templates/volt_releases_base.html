@@ -410,7 +410,7 @@
         var publishing_rights_name = document.getElementById('publishing_rights_name');
         var audio_track = document.getElementById('audio_file_track').value;
         var audio_src = document.getElementById('audio').src;
-        var file_upload_finalizer = $('.textbox')
+        var file_upload_finalizer = $('#uploaded_files .textbox')
         var track_title = document.getElementById('title_track').value;
 
         if (track_title.trim() == "") {
@@ -425,12 +425,22 @@
             sendSweetAlert('basic', 'Audio Track',"Please upload audio track!")
             return;
         }
-        if (file_upload_finalizer.text() != "Uploaded Successfully" && file_upload_finalizer.text() != "") {
+        if (file_upload_finalizer.length && file_upload_finalizer.text() != "Uploaded Successfully" && file_upload_finalizer.text() != "") {
 
             sendSweetAlert('basic', 'Audio Track',"Please wait for audio track to upload!")
             set_loading("#in_preview_dist_info_btn", true, 0, "1.5rem", "1.5rem");
             return
-        } 
+        }
+
+        var dolbyAtmosInput = document.getElementById('dolby_atmos_file_track');
+        var dolbyAtmosStatus = $('#dolby_atmos_uploaded_files .textbox');
+        if (dolbyAtmosInput && dolbyAtmosInput.files && dolbyAtmosInput.files.length > 0) {
+            var dtxt = dolbyAtmosStatus.length ? dolbyAtmosStatus.text() : "";
+            if (dtxt.indexOf("Atmos file received") === -1) {
+                sendSweetAlert('basic', 'Dolby Atmos', "Please wait for the Dolby Atmos file upload to finish.");
+                return;
+            }
+        }
 
         if (!isrc_code_track_check.checked && isrc_code_track.value == "") {
             console.log("ISRC Code is not empty!, either check the box or enter a ISRC Code!, Cannot have both! isrc_code_track.checked and isrc_code_track.value: ", isrc_code_track.checked, isrc_code_track.value);

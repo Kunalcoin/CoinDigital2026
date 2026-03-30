@@ -225,6 +225,7 @@ $(window).keydown(function(event){
                     </button>
                 </div>
                 <p class="text-muted small mb-2">Drag tracks to set the sequence. Order is saved automatically.</p>
+                <p class="text-muted small mb-3"><strong>Dolby Atmos:</strong> open a track with the edit link — the Atmos upload and secondary ISRC are on that page (full-width section below genres &amp; lyrics).</p>
                 <ul id="tracks_list" class="list-unstyled mb-0">
                     {% for r in rl_data.all_tracks %}
                     <li class="track-row border rounded p-2 mb-2 d-flex align-items-center" id="{{ r.primary_track_uuid }}" data-track-id="{{ r.primary_track_uuid }}">

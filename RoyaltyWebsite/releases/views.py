@@ -37,13 +37,14 @@ from django.db import close_old_connections
 from django.db.models import Q, Sum, Max
 from django.db.models.functions import Upper
 from django.http import HttpResponse, HttpResponseNotFound, JsonResponse
-from django.shortcuts import render
+from django.shortcuts import get_object_or_404, render
 from django.views.decorators.csrf import csrf_exempt
 from handlers import DataValidator, FileHandler
 from django.views.decorators.http import require_POST, require_GET
 import json
 from django.contrib.auth.decorators import login_required
 
+from .ddex_package import normalize_s3_https_url
 from .processor import processor
 
 
@@ -1219,10 +1220,13 @@ def single_tracks_info(request, primary_uuid, primary_track_uuid):
                     )
                     artist_instance.save()
             path = "media/"
+            # Staged stereo master: media/{release_id}.wav (NOT *_atmos.wav — that is Dolby upload)
             files = [
                 i
                 for i in os.listdir(path)
-                if os.path.isfile(os.path.join(path, i)) and primary_uuid in i
+                if os.path.isfile(os.path.join(path, i))
+                and primary_uuid in i
+                and "_atmos." not in i
             ]
             if files:
                 wav_local = os.path.join(path, files[0])
@@ -1277,6 +1281,30 @@ def single_tracks_info(request, primary_uuid, primary_track_uuid):
             )
             _track.start_point = request.POST.get("start_point_time_track")
             _track.notes = request.POST.get("notes_track")
+            _track.apple_music_dolby_atmos_url = normalize_s3_https_url(
+                request.POST.get("apple_music_dolby_atmos_url") or ""
+            )
+            _track.apple_music_dolby_atmos_isrc = (
+                request.POST.get("apple_music_dolby_atmos_isrc") or ""
+            ).strip().upper()
+
+            # Staged Dolby Atmos BWF (after form fields — overwrites URL when user just uploaded)
+            atmos_staged = os.path.join(
+                path, f"{primary_uuid}_{primary_track_uuid}_atmos.wav"
+            )
+            if os.path.isfile(atmos_staged):
+                base_key_atmos = (
+                    f"unassigned/{primary_uuid}/{primary_uuid}_{primary_track_uuid}_atmos"
+                )
+                with open(atmos_staged, "rb") as f:
+                    default_storage.save(f"{base_key_atmos}.wav", ContentFile(f.read()))
+                _track.apple_music_dolby_atmos_url = default_storage.url(
+                    f"{base_key_atmos}.wav"
+                )
+                try:
+                    os.remove(atmos_staged)
+                except Exception:
+                    pass
 
             _track.save()
 
@@ -2202,7 +2230,12 @@ def _run_distribution_job(job_id: int) -> None:
                 ("audiomack", lambda: deliver_release_to_audiomack(release)),
                 ("gaana", lambda: deliver_release_to_gaana(release)),
                 ("tiktok", lambda: deliver_release_to_tiktok(release)),
-                ("apple_music", lambda: deliver_release_to_merlin_bridge(release)),
+                (
+                    "apple_music",
+                    lambda: deliver_release_to_merlin_bridge(
+                        release, distribution_job_id=job.id
+                    ),
+                ),
             ]
         else:
             from releases.audiomack_delivery import deliver_takedown_to_audiomack
@@ -2216,8 +2249,21 @@ def _run_distribution_job(job_id: int) -> None:
                 ("apple_music", lambda: deliver_takedown_to_merlin_bridge(release)),
             ]
 
+        from releases.merlin_bridge_delivery import MerlinDownloadCancelled
+
         results = {}
+        cancelled = False
         for store_code, fn in ops:
+            job.refresh_from_db()
+            if job.cancel_requested:
+                cancelled = True
+                results[store_code] = {
+                    "success": False,
+                    "message": "Cancelled before this store ran.",
+                    "detail": {},
+                    "duration_seconds": 0,
+                }
+                break
             started = time.time()
             try:
                 ok, err, detail = fn()
@@ -2227,6 +2273,16 @@ def _run_distribution_job(job_id: int) -> None:
                     "detail": detail or {},
                     "duration_seconds": round(time.time() - started, 2),
                 }
+            except MerlinDownloadCancelled as e:
+                log.info("Distribution job %s cancelled during Merlin/S3: %s", job_id, e)
+                cancelled = True
+                results[store_code] = {
+                    "success": False,
+                    "message": str(e),
+                    "detail": {},
+                    "duration_seconds": round(time.time() - started, 2),
+                }
+                break
             except Exception as e:
                 log.exception("Distribution job %s store %s failed: %s", job_id, store_code, e)
                 results[store_code] = {
@@ -2237,8 +2293,12 @@ def _run_distribution_job(job_id: int) -> None:
                 }
 
         success_count = sum(1 for r in results.values() if r.get("success"))
-        total = len(results)
-        if success_count == total:
+        n_stores = len(results)
+        num_ops = len(ops)
+        if cancelled:
+            status = DistributionJob.STATUS.FAILED
+            msg = "Cancelled by admin."
+        elif success_count == n_stores and n_stores == num_ops:
             status = DistributionJob.STATUS.SUCCESS
             msg = "Completed successfully."
         elif success_count == 0:
@@ -2246,15 +2306,26 @@ def _run_distribution_job(job_id: int) -> None:
             msg = "All stores failed."
         else:
             status = DistributionJob.STATUS.PARTIAL
-            msg = f"Completed with partial success ({success_count}/{total})."
+            msg = f"Completed with partial success ({success_count}/{n_stores})."
 
         finished = timezone.now()
+        job.refresh_from_db()
         job.status = status
         job.finished_at = finished
         job.duration_seconds = round((finished - (job.started_at or finished)).total_seconds(), 2)
         job.store_results = results
         job.message = msg
-        job.save(update_fields=["status", "finished_at", "duration_seconds", "store_results", "message"])
+        job.cancel_requested = False
+        job.save(
+            update_fields=[
+                "status",
+                "finished_at",
+                "duration_seconds",
+                "store_results",
+                "message",
+                "cancel_requested",
+            ]
+        )
     except Exception as e:
         log.exception("Distribution job %s failed unexpectedly: %s", job_id, e)
         try:
@@ -2283,7 +2354,16 @@ def ddex_distribution_jobs(request, primary_uuid):
         return JsonResponse({"success": False, "message": "Release not found."}, status=404)
     jobs = DistributionJob.objects.filter(release=release).select_related("requested_by").order_by("-id")[:50]
     data = []
+    from django.utils import timezone as dj_tz
+
     for j in jobs:
+        sr = j.store_results or {}
+        live = sr.get("_live") or {}
+        elapsed_running = 0.0
+        if j.status == DistributionJob.STATUS.RUNNING and j.started_at:
+            elapsed_running = round(
+                (dj_tz.now() - j.started_at).total_seconds(), 1
+            )
         data.append({
             "id": j.id,
             "action": j.action,
@@ -2294,9 +2374,36 @@ def ddex_distribution_jobs(request, primary_uuid):
             "finished_at": j.finished_at.isoformat() if j.finished_at else "",
             "duration_seconds": j.duration_seconds or 0,
             "requested_by": (j.requested_by.email if j.requested_by else ""),
-            "store_results": j.store_results or {},
+            "store_results": sr,
+            "live_step": live.get("step", ""),
+            "live_updated_at": live.get("updated_at", ""),
+            "elapsed_running_seconds": elapsed_running,
         })
     return JsonResponse({"success": True, "jobs": data})
+
+
+@csrf_exempt
+@login_required
+def cancel_distribution_job(request, primary_uuid, job_id):
+    """Admin: request cancellation of a queued or running distribution job (stops between stores / during large S3 reads)."""
+    if request.method != "POST":
+        return JsonResponse({"success": False, "message": "POST required."}, status=405)
+    if request.user.role != CDUser.ROLES.ADMIN and not getattr(request.user, "is_staff", False):
+        return JsonResponse({"success": False, "message": "Only admin or staff can cancel."}, status=403)
+    try:
+        release = Release.objects.get(pk=primary_uuid)
+    except Release.DoesNotExist:
+        return JsonResponse({"success": False, "message": "Release not found."}, status=404)
+    job = get_object_or_404(DistributionJob, pk=job_id, release=release)
+    if job.status not in (DistributionJob.STATUS.QUEUED, DistributionJob.STATUS.RUNNING):
+        return JsonResponse({"success": False, "message": "Job is not queued or running."}, status=400)
+    job.cancel_requested = True
+    job.message = "Cancellation requested…"
+    job.save(update_fields=["cancel_requested", "message"])
+    return JsonResponse({
+        "success": True,
+        "message": "Cancel requested. The job will stop at the next checkpoint (or during large S3 download).",
+    })
 
 
 @csrf_exempt
@@ -2586,6 +2693,67 @@ def file_uploader(request, primary_uuid):
                 else:
                     res = JsonResponse({"existingPath": existingPath})
                 return res
+
+
+def file_uploader_atmos_track(request, primary_uuid, track_uuid):
+    """
+    Chunked upload for Dolby Atmos master (BWF .wav). Writes to
+    media/{release_id}_{track_id}_atmos.wav so it does not overwrite stereo upload.
+    """
+    if not request.user.is_authenticated or not request.user.is_active:
+        return JsonResponse({"data": "Unauthorized"}, status=401)
+    if not has_release_access(request.user, primary_uuid):
+        return JsonResponse({"data": "Forbidden"}, status=403)
+    try:
+        Track.objects.get(pk=track_uuid, release_id=primary_uuid)
+    except Track.DoesNotExist:
+        return JsonResponse({"data": "Track not found"}, status=404)
+
+    if request.method != "POST":
+        return JsonResponse({"data": "Method not allowed"}, status=405)
+
+    file = request.FILES["file"].read()
+    fileName = request.POST["filename"]
+    existingPath = request.POST["existingPath"]
+    end = request.POST["end"]
+    nextSlice = request.POST["nextSlice"]
+    if (
+        file == b""
+        or fileName == ""
+        or existingPath == ""
+        or end == ""
+        or nextSlice == ""
+    ):
+        return JsonResponse({"data": "Invalid Request"})
+    ext = (fileName.rsplit(".", 1)[-1] if "." in fileName else "").lower()
+    if ext != "wav":
+        return JsonResponse({"data": "Dolby Atmos upload must be a .wav file"}, status=400)
+
+    base_name = f"{primary_uuid}_{track_uuid}_atmos.wav"
+    media_path = os.path.join("media", base_name)
+
+    if existingPath == "null":
+        with open(media_path, "wb+") as destination:
+            destination.write(file)
+        if int(end):
+            res = JsonResponse(
+                {
+                    "data": "Atmos file received — click Update on the track to save to cloud storage.",
+                    "existingPath": base_name,
+                }
+            )
+        else:
+            res = JsonResponse({"existingPath": base_name})
+        return res
+    with open(media_path, "ab+") as destination:
+        destination.write(file)
+    if int(end):
+        res = JsonResponse(
+            {"data": "Atmos file received — click Update on the track to save to cloud storage.", "existingPath": existingPath}
+        )
+    else:
+        res = JsonResponse({"existingPath": existingPath})
+    return res
 
 
 def check_audio_meta_info(request, primary_uuid_with_extension):

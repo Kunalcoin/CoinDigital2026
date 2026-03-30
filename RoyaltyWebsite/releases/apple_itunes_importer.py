@@ -224,6 +224,69 @@ def _strip_emoji(s: str) -> str:
     return _EMOJI_PATTERN.sub("", str(s)).strip()
 
 
+def _release_apple_atmos_delivery_allowed(release: Release) -> bool:
+    """Dolby Atmos in metadata/package only when the release owner has the per-user flag."""
+    u = getattr(release, "created_by", None)
+    return bool(u and getattr(u, "apple_music_dolby_atmos_enabled", False))
+
+
+def _isrc_alphanumeric(isrc: str) -> str:
+    """Apple immersive ISRC: letters and digits only, no dashes."""
+    return "".join(c for c in (isrc or "").strip().upper() if c.isalnum())
+
+
+def _track_atmos_file_info(
+    file_info: Dict[str, Dict[str, Any]], track_index: int
+) -> Optional[Dict[str, Any]]:
+    key = f"track_{track_index}_atmos"
+    info = (file_info or {}).get(key) or {}
+    if not info:
+        return None
+    if not (info.get("md5") or "").strip():
+        return None
+    return info
+
+
+def _track_audio_xml_block(
+    upc: str,
+    track_num: int,
+    audio_extension: str,
+    stereo_info: Dict[str, Any],
+    atmos_info: Optional[Dict[str, Any]],
+) -> str:
+    """
+    Single-track audio: either legacy <audio_file> (stereo only) or <assets><asset type="full">
+    with audio.2_0 + audio.object_based when Dolby Atmos is delivered. See Apple Music Spec 5.3
+    (Immersive / Dolby Atmos).
+    """
+    ext = (audio_extension or "wav").strip().lstrip(".") or "wav"
+    stereo_name = f"{upc}_01_{track_num:03d}.{ext}"
+    t_size = int(stereo_info.get("size") or 0)
+    t_md5 = (stereo_info.get("md5") or "").strip().lower()
+
+    if not atmos_info:
+        return (
+            f"<audio_file><file_name>{_escape(stereo_name)}</file_name>"
+            f"<size>{t_size}</size><checksum type=\"md5\">{_escape(t_md5)}</checksum></audio_file>"
+        )
+
+    atmos_name = f"{upc}_01_{track_num:03d}_atmos.wav"
+    a_size = int(atmos_info.get("size") or 0)
+    a_md5 = (atmos_info.get("md5") or "").strip().lower()
+    atmos_isrc = _isrc_alphanumeric(atmos_info.get("isrc") or "")
+    isrc_attr = f' external_identifier.isrc="{_escape(atmos_isrc)}"' if atmos_isrc else ""
+
+    stereo_df = (
+        f'<data_file role="audio.2_0"><file_name>{_escape(stereo_name)}</file_name>'
+        f"<size>{t_size}</size><checksum type=\"md5\">{_escape(t_md5)}</checksum></data_file>"
+    )
+    atmos_df = (
+        f'<data_file role="audio.object_based"{isrc_attr}><file_name>{_escape(atmos_name)}</file_name>'
+        f"<size>{a_size}</size><checksum type=\"md5\">{_escape(a_md5)}</checksum></data_file>"
+    )
+    return f"<assets><asset type=\"full\">{stereo_df}{atmos_df}</asset></assets>"
+
+
 def _track_preorder_type_element(release: Release, track: Track, preorder_date_str: str) -> str:
     """
     Apple Music Spec: during a pre-order, each track should include <preorder_type> under <track>
@@ -343,10 +406,35 @@ def build_apple_itunes_metadata(
             explicit = "clean"
         vol, track_num = 1, idx + 1
         ext = (audio_extension or "wav").strip().lstrip(".") or "wav"
-        audio_file_name = f"{upc}_01_{track_num:03d}.{ext}"
         t_info = file_info.get(f"track_{idx}", {})
         t_size = t_info.get("size", 0)
         t_md5 = (t_info.get("md5") or "").strip().lower()
+        atmos_info = None
+        if _release_apple_atmos_delivery_allowed(release):
+            raw_atmos_isrc = (getattr(track, "apple_music_dolby_atmos_isrc", None) or "").strip()
+            raw_atmos_url = (getattr(track, "apple_music_dolby_atmos_url", None) or "").strip()
+            fi_atmos = _track_atmos_file_info(file_info, idx)
+            if fi_atmos and raw_atmos_url and _isrc_alphanumeric(raw_atmos_isrc):
+                atmos_info = {**fi_atmos, "isrc": _isrc_alphanumeric(raw_atmos_isrc)}
+            elif fi_atmos and raw_atmos_url and not _isrc_alphanumeric(raw_atmos_isrc):
+                logger.warning(
+                    "Track id=%s: Dolby Atmos file present in package but apple_music_dolby_atmos_isrc is missing; "
+                    "emitting stereo-only audio in metadata.",
+                    track.id,
+                )
+            elif raw_atmos_url or raw_atmos_isrc:
+                logger.warning(
+                    "Track id=%s: partial Dolby Atmos fields (need URL, secondary ISRC, and successful S3/file_info); "
+                    "using stereo-only in metadata.",
+                    track.id,
+                )
+        audio_block = _track_audio_xml_block(
+            upc,
+            track_num,
+            ext,
+            {"size": t_size, "md5": t_md5},
+            atmos_info,
+        )
         audio_lang = _language_to_apple_code(getattr(track, "language", None) or getattr(release, "language", None) or "")
         track_product_inner = _apple_music_product_xml(
             release,
@@ -357,7 +445,7 @@ def build_apple_itunes_metadata(
             preorder_date_str=preorder_date_str,
         )
         preorder_type_el = _track_preorder_type_element(release, track, preorder_date_str)
-        track_xml = f'<track><vendor_id>{_escape(vendor_id_track)}</vendor_id><isrc>{_escape(isrc)}</isrc><title>{track_title}</title><original_release_date>{track_rel_date}</original_release_date><genres><genre code="{track_genre}"/></genres>{preorder_type_el}<products>{track_product_inner}</products><label_name>{track_label}</label_name><copyright_pline>{track_pline}</copyright_pline><explicit_content>{explicit}</explicit_content><volume_number>{vol}</volume_number><track_number>{track_num}</track_number><audio_file><file_name>{_escape(audio_file_name)}</file_name><size>{t_size}</size><checksum type="md5">{_escape(t_md5)}</checksum></audio_file><artists>{track_artist_xml}</artists><audio_language>{audio_lang}</audio_language></track>'
+        track_xml = f'<track><vendor_id>{_escape(vendor_id_track)}</vendor_id><isrc>{_escape(isrc)}</isrc><title>{track_title}</title><original_release_date>{track_rel_date}</original_release_date><genres><genre code="{track_genre}"/></genres>{preorder_type_el}<products>{track_product_inner}</products><label_name>{track_label}</label_name><copyright_pline>{track_pline}</copyright_pline><explicit_content>{explicit}</explicit_content><volume_number>{vol}</volume_number><track_number>{track_num}</track_number>{audio_block}<artists>{track_artist_xml}</artists><audio_language>{audio_lang}</audio_language></track>'
         tracks_el_parts.append(track_xml)
 
     tracks_el = "".join(tracks_el_parts)

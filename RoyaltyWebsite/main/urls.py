@@ -33,6 +33,11 @@ urlpatterns = [
     path('user/requests/delete/<int:request_id>/', views.delete_my_request, name="delete_my_request"), #Working: ✅
     path("users/status/edit/", views.update_user_status, name="update_user_status"),
     path('users/splitroyalitiesenabled/edit/', views.edit_splitroyalities_enabled, name='edit_splitroyalities_enabled'),
+    path(
+        'users/applemusicdolbyatmos/edit/',
+        views.edit_apple_music_dolby_atmos_enabled,
+        name='edit_apple_music_dolby_atmos_enabled',
+    ),
     path("request/feedback/", views.request_feedback, name='request_feedback'), #Working: ✅
     path("announcements/add/", views.add_announcement, name="add_announcement"), # Admin working: ✅
 

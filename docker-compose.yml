@@ -9,6 +9,11 @@ services:
       context: .
     ports:
       - "8000:8000"
+    # Large Merlin / Dolby Atmos (1GB+) packages: give the worker enough RAM or OOM kills mid-zip.
+    # deploy:
+    #   resources:
+    #     limits:
+    #       memory: 4G
   nginx:
     build: ./nginx
     volumes:

@@ -162,3 +162,6 @@ db*.sql.gz
 *.rdb
 *.aof
 *.pid
+
+# Royalties: local corrected workbook (do not commit)
+RoyaltyWebsite/data_corrected_dates.xlsx

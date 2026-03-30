@@ -30,11 +30,21 @@ urlpatterns = [
     path('releases/<str:primary_uuid>/ddex-deliver-all-stores/', views.ddex_deliver_all_stores, name="ddex_deliver_all_stores"),
     path('releases/<str:primary_uuid>/ddex-takedown-all-stores/', views.ddex_takedown_all_stores, name="ddex_takedown_all_stores"),
     path('releases/<str:primary_uuid>/ddex-distribution-jobs/', views.ddex_distribution_jobs, name="ddex_distribution_jobs"),
+    path(
+        'releases/<str:primary_uuid>/ddex-distribution-jobs/<int:job_id>/cancel/',
+        views.cancel_distribution_job,
+        name="cancel_distribution_job",
+    ),
     path('releases/add_new_label/<str:data>', views.add_new_label, name="add_new_label"),
     path('releases/add_new_artist/<str:artist_name>/', views.add_new_artist, name='add_new_artist'),
     path('releases/update_release_title/<str:primary_uuid>/<str:new_release_title>', views.update_release_title, name="update_release_title"), # Admin working: ✅ || intermediate working: ✅ || normal working: ✅
 
     path('releases/file_uploader/<str:primary_uuid>', views.file_uploader, name="file_uploader"),
+    path(
+        'releases/file_uploader/<str:primary_uuid>/<str:track_uuid>/atmos/',
+        views.file_uploader_atmos_track,
+        name="file_uploader_atmos_track",
+    ),
     path('releases/upload_releases', views.upload_releases, name='upload_releases'),
     path('releases/release_report', views.release_report, name="release_report"),
     
