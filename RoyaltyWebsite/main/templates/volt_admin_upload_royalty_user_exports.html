@@ -64,18 +64,40 @@
           </button>
         </form>
         <pre id="bulk_export_result" class="mt-3 small bg-light p-2 border" style="display:none;"></pre>
+        <div id="skipped_csv_wrap" class="mt-2" style="display:none;">
+          <button type="button" class="btn btn-outline-secondary btn-sm" id="skipped_csv_btn">
+            Download skipped emails (CSV)
+          </button>
+          <span class="text-muted small ms-2" id="skipped_csv_hint"></span>
+        </div>
       </div>
     </div>
   </div>
 </div>
 <script>
+  function royaltySkippedToCsv(rows) {
+    var lines = ["email,row_count"];
+    for (var i = 0; i < rows.length; i++) {
+      var r = rows[i];
+      var em = String(r.email != null ? r.email : "").replace(/"/g, '""');
+      lines.push('"' + em + '",' + (parseInt(r.rows, 10) || 0));
+    }
+    return lines.join("\r\n");
+  }
   document.getElementById("bulk_export_form").addEventListener("submit", function (ev) {
     ev.preventDefault();
     var form = ev.target;
     var fd = new FormData(form);
     var out = document.getElementById("bulk_export_result");
+    var skipWrap = document.getElementById("skipped_csv_wrap");
+    var skipBtn = document.getElementById("skipped_csv_btn");
+    var skipHint = document.getElementById("skipped_csv_hint");
+    skipWrap.style.display = "none";
+    skipHint.textContent = "";
+    skipBtn.onclick = null;
     out.style.display = "block";
     out.textContent = "Uploading…";
+    out.classList.remove("border-danger", "border-success");
     fetch(form.action || window.location.pathname, {
       method: "POST",
       headers: { "X-CSRFToken": fd.get("csrfmiddlewaretoken") },
@@ -83,12 +105,45 @@
     })
       .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
       .then(function (x) {
-        out.textContent = JSON.stringify(x.j, null, 2);
-        if (x.j.success) {
+        var j = x.j || {};
+        var summary = {};
+        for (var k in j) {
+          if (Object.prototype.hasOwnProperty.call(j, k) && k !== "skipped_breakdown") {
+            summary[k] = j[k];
+          }
+        }
+        if (j.skipped_breakdown && j.skipped_breakdown.length) {
+          summary.skipped_unique_emails = j.skipped_unique_emails != null
+            ? j.skipped_unique_emails
+            : j.skipped_breakdown.length;
+          summary.note =
+            "Use “Download skipped emails (CSV)” for the full list (not shown in JSON below).";
+        }
+        out.textContent = JSON.stringify(summary, null, 2);
+        if (j.success) {
           out.classList.remove("border-danger");
           out.classList.add("border-success");
         } else {
           out.classList.add("border-danger");
+        }
+        var br = j.skipped_breakdown;
+        if (br && br.length && (j.skipped_rows | 0) > 0) {
+          skipWrap.style.display = "block";
+          skipHint.textContent =
+            br.length + " distinct spreadsheet address(es) had no matching active user.";
+          skipBtn.onclick = function () {
+            var csv = royaltySkippedToCsv(br);
+            var blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+            var a = document.createElement("a");
+            var period = (j.report_period || "skipped").replace(/[^0-9a-z-]/gi, "_");
+            var bid = (j.batch_id || "export").replace(/[^0-9a-z-]/gi, "_");
+            a.href = URL.createObjectURL(blob);
+            a.download = "skipped_emails_" + period + "_" + bid + ".csv";
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(a.href);
+          };
         }
       })
       .catch(function (e) {

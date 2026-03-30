@@ -1303,9 +1303,14 @@ def admin_royalty_user_exports(request):
 
         to_create = []
         skipped_rows = 0
+        skipped_row_count_by_email = {}
         for em_lower, chunk in df.groupby("_owner_email"):
             if em_lower not in canonical_by_lower:
-                skipped_rows += len(chunk)
+                n = len(chunk)
+                skipped_rows += n
+                skipped_row_count_by_email[em_lower] = (
+                    skipped_row_count_by_email.get(em_lower, 0) + n
+                )
                 continue
             owner = canonical_by_lower[em_lower]
             for old in RoyaltyUserExport.objects.filter(
@@ -1337,12 +1342,21 @@ def admin_royalty_user_exports(request):
                     uploaded_by=request.user,
                 )
             )
+        skipped_breakdown = [
+            {"email": em, "rows": n}
+            for em, n in sorted(
+                skipped_row_count_by_email.items(),
+                key=lambda item: (-item[1], item[0]),
+            )
+        ]
         if not to_create:
             return JsonResponse(
                 {
                     "success": False,
                     "error": "No rows matched an active user email.",
                     "skipped_rows": skipped_rows,
+                    "skipped_unique_emails": len(skipped_breakdown),
+                    "skipped_breakdown": skipped_breakdown,
                 },
                 status=400,
             )
@@ -1354,6 +1368,8 @@ def admin_royalty_user_exports(request):
                 "batch_id": str(batch_id),
                 "files_created": len(to_create),
                 "skipped_rows": skipped_rows,
+                "skipped_unique_emails": len(skipped_breakdown),
+                "skipped_breakdown": skipped_breakdown,
                 "retention_days": retention_days,
                 "confirmed_sales_month": period_label,
                 "report_period": report_period.isoformat(),
