@@ -1,6 +1,23 @@
 import pandas as pd
 from constants import *
 from main.processor import processor
+
+
+def _strip_python_bytes_repr(val):
+    """
+    Turn mistaken 'b\'Title\'' text (or real bytes repr) into plain Title.
+    Excel/legacy uploads sometimes store Python bytes repr as a literal string.
+    """
+    if val is None or (isinstance(val, float) and pd.isna(val)):
+        return ""
+    s = str(val).strip()
+    if len(s) >= 3 and s.startswith("b'") and s.endswith("'"):
+        inner = s[2:-1].replace("\\'", "'").strip()
+        return inner if inner else s
+    if len(s) >= 3 and s.startswith('b"') and s.endswith('"'):
+        inner = s[2:-1].replace('\\"', '"').strip()
+        return inner if inner else s
+    return s
 from releases.processor import processor
 import re
 import uuid
@@ -245,13 +262,42 @@ class DataValidator:
 
     def royalties_processor(self):
         validation = self._get_validation(self.type)
-        df = self.data[validation['required_columns']]
-        df['type'] = df.apply(lambda x: royalties_type_mappings.get( str(x.channel).upper().strip() ,'others') ,axis=1)
-        df["net_total_INR"] = df.apply(
-            lambda x: x.net_total * x.currency_rate, axis=1
+        df = self.data[validation['required_columns']].copy()
+        numeric_cols = [
+            "units",
+            "unit_price",
+            "gross_total",
+            "channel_costs",
+            "taxes",
+            "net_total",
+            "currency_rate",
+            "gross_total_client_currency",
+            "other_costs_client_currency",
+            "channel_costs_client_currency",
+            "taxes_client_currency",
+            "net_total_client_currency",
+        ]
+        for col in numeric_cols:
+            df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
+        df["units"] = df["units"].round(0).astype("int64")
+        df["type"] = df.apply(
+            lambda x: royalties_type_mappings.get(
+                str(x.channel).upper().strip(), "others"
+            ),
+            axis=1,
+        )
+        df["net_total_INR"] = df["net_total"] * df["currency_rate"]
+        for col in ("country", "currency", "channel"):
+            df[col] = df[col].apply(
+                lambda x: "" if pd.isna(x) else str(x).strip()
+            )
+        df["isrc"] = df["isrc"].apply(
+            lambda x: "INC01" if pd.isna(x) or str(x).strip() == "" else str(x).strip()
         )
         # add confirmed date column
-        df['confirmed_date'] = (pd.Timestamp.now() + pd.offsets.MonthEnd(0)).strftime('%Y-%m-%d')
+        df["confirmed_date"] = (
+            pd.Timestamp.now() + pd.offsets.MonthEnd(0)
+        ).strftime("%Y-%m-%d")
         return df
 
     def royalties_meta_processor(self):
@@ -270,9 +316,9 @@ class DataValidator:
         ]
         df["isrc"] = df.apply(lambda x: str(x.isrc).upper(), axis=1)
         df = df[~df["isrc"].isin(old_isrc)]
-        df[["label_name", "release", "track"]] = df[
-            ["label_name", "release", "track"]
-        ].applymap(lambda x: str(x).encode("utf8"))
+
+        for col in ("label_name", "release", "track", "display_artist"):
+            df[col] = df[col].map(_strip_python_bytes_repr)
 
         return df
 

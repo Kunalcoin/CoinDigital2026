@@ -2484,9 +2484,14 @@ def upload_calculation_royalties(request):
                 else:
                     return JsonResponse({"error": f"{response}"})
             except Exception as e:
-                print(traceback.format_exc())
+                logger.exception("upload_calculation_royalties failed")
                 return JsonResponse(
-                    {"error": "Upload Failed! Please check your file and try again."}
+                    {
+                        "error": (
+                            "Upload failed. Fix the issue below and retry. "
+                            f"Detail: {e}"
+                        )
+                    }
                 )
         else:
             return JsonResponse({"error": "Invalid Request!"})
